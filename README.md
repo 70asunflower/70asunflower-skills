@@ -1,46 +1,70 @@
-# WorkBuddy / ZCode Custom Skills
+# 70asunflower skills
 
-把个人经验和工作流沉淀成技能：做过的事、踩过的坑、验证过的流程，写成一个可复用的技能，
-下次直接调用，不用重新想一遍。
+> 把做过的事、踩过的坑、验证过的流程，写成 agent 能直接调用的技能。
+> 一份内容，五个 agent 共用——不复制，不漂移。
 
-同时解决一个工程问题：这些技能要给 **Claude / Codex / ZCode / Gemini / WorkBuddy** 五个 agent
-共用，但不能靠"每个目录放一份"——那样必然漂移。做法和理由见下方「设计思路」。
+![skills](https://img.shields.io/badge/skills-28-7cc4ff?style=flat-square)
+![agents](https://img.shields.io/badge/agents-5-8b7cff?style=flat-square)
+![last commit](https://img.shields.io/github/last-commit/70asunflower/70asunflower-skills?style=flat-square&color=ffb454&label=last%20commit)
 
-## 设计思路
+![架构](./.github/assets/architecture.svg)
+
+## 先看这几个
+
+28 个技能里，最能说明这套东西怎么用的是这六个：
+
+| 技能 | 它解决什么 |
+|---|---|
+| [agent-skills-sync](./agent-skills-sync/) | 五个 agent 共享同一份技能，靠目录联结而不是复制。这个仓库的地基 |
+| [project-init](./project-init/) | 新建项目第一件事：立 git、立规范、立留痕，而不是先建目录写文件 |
+| [project-review](./project-review/) | 给项目打分：六维审查、透明扣分、按优先级给修复清单 |
+| [layoutfix](./layoutfix/) | 查矢量图里字压图、文字被盖、箭头悬空；还能起个界面用鼠标拖，改动落成可重放的清单 |
+| [snap](./snap/) | 一条命令截图/体检/像素对比，零依赖。交付前确认页面真的没坏 |
+| [paper-writing](./paper-writing/) | 工程论文写作的六个可执行模式：audit / rewrite / causal-chain / forensic / cite-lint / budget-control |
+
+## 为什么是「一份文件」而不是「每个 agent 一份」
 
 技能本身是内容，真正的设计在**怎么分发给多个 agent**：
 
 | 做法 | 后果 |
 |---|---|
-| 每个 agent 目录各放一份副本 | 改了一处忘另一处，两周后 6 份内容各不相同，且分不清哪份是对的 |
+| 每个 agent 目录各放一份副本 | 改了一处忘另一处，两周后六份内容各不相同，还分不清哪份是对的 |
 | 一个仓库 + 目录联结（junction） | 只有一份文件，改哪里都是改这一份 |
-
-所以：**仓库是唯一真相源，各 agent 的 skills 目录里放的是指向仓库子目录的联结，不是副本。**
-Antigravity 不支持 junction，走 `~/.gemini/config/skills.json` 原生声明式直挂主库。
 
 由此推出三条硬规矩：
 
 1. **不复制、不另存、不"先备份一份"**——副本会立刻漂移，旧版本靠 git 历史取回
 2. **新增技能建在仓库里** `<skill>/SKILL.md`，不在 agent 目录下新建真实目录（会脱离仓库）
-3. **删技能必须同步清理联结**——主库删了目录，各 agent 里那条 junction 会变成指向空路径的空壳，
-   不报错但行为不可预期（一次删 7 个技能会在 6 个 agent 目录里留下 42 条断链）
+3. **删技能必须同步清理联结**——主库删了目录，各 agent 里那条 junction 变成指向空路径的空壳，不报错但行为不可预期
 
-第三方技能是例外，**按渠道各自保留、不入库**：它们渠道参数不同，不是版本差异。
+一次删 7 个技能会在 6 个 agent 目录里留下 42 条断链。所以 `doctor` 不返回「问题数: 0」就不算做完。
 
-## 依赖
+第三方技能是例外：**按渠道各自保留、不入库**。它们渠道参数不同，不是版本差异。
 
-共享机制依赖 [`agent-skills-sync`](./agent-skills-sync/) 这一个技能：
+## 怎么用
 
-- **分发**：把仓库子目录挂成各 agent 的 junction
-- **体检**：`skillsync.py doctor` 查断链 / 链式嵌套 / 主库含链接
-- **漂移**：`scan` 找多副本差异，`prune` 清断链
-- **设计理由**：这套机制为什么这么定，写在它的 `SKILL.md` 里
+最简单的用法是复制单个技能目录：
 
-没有它，这个仓库只是一堆文件夹；换机器、加新 agent 时按它的说明重建。
+```bash
+cp -r project-init ~/.claude/skills/
+```
 
-## Skills 列表
+想长期用、且装了多个 agent，就按 [`agent-skills-sync`](./agent-skills-sync/) 的做法把目录挂成联结，改一处全部生效。
 
-按**用途**分组。标 `personal` 的绑了个人路径 / 账号 / 登录态，别人装了要改；
+各 agent 的技能目录：
+
+- WorkBuddy：`~/.workbuddy/skills/`
+- Claude Code：`~/.claude/skills/`
+- Codex：`~/.codex/skills/`
+- ZCode：`~/.zcode/skills/`
+- Gemini CLI：`~/.gemini/config/skills/`
+- Antigravity：`~/.gemini/config/skills.json`（原生声明式直挂主库，避开 Windows Junction 限制）
+
+技能由 agent 按描述自动触发，不需要记命令——每个 `SKILL.md` 开头的 `description` 就是触发条件。
+
+## 全部 28 个技能
+
+按用途分组。标 `personal` 的绑了个人路径 / 账号 / 登录态，别人装了要改配置；
 其余可以直接拿去用（个别技能含本机解释器路径，按需改一行）。
 
 ### 学术与论文 — 写、审、画图、调研报告
@@ -68,7 +92,7 @@ Antigravity 不支持 junction，走 `~/.gemini/config/skills.json` 原生声明
 | [md2docx-formal](./md2docx-formal/) | 将 Markdown 中文工程文档转换为规范排版的 Word（A4、篇/章/节标题层级、1.5 倍行距、自动目录、页眉页脚、GB/T 7714 引用上标），并支持源文档一致性审查 |
 | [strict-docx-audit](./strict-docx-audit/) | docx 转换后的质量闸：12 项结构与排版检查 |
 | [doc-plain-zh](./doc-plain-zh/) | 中文文档可读性转换：拗口 → 通顺，只改表达、不改逻辑与事实，保持书面正式 |
-| [weekreport](./weekreport/) | 零散工作要点 → 周报正文：四段归位（本周/在做/卡住/下周）、周报特有的九种 AI 味清单、扩充只扩表达不扩事实；通用去 AI 味归 humanizer-zh，含五个场景的前后对照 |
+| [weekreport](./weekreport/) | 零散工作要点 → 周报正文：结论先行 + 产出必须具名 + 六条「让产出可见」的结构规则（放弃写成决策、旧目标闭环、下周可验收、累计进度）+ 周报特有的九种 AI 味清单 + 扩充只扩表达不扩事实；通用去 AI 味归 humanizer-zh，含六个场景的前后对照 |
 | [tutorial-writer](./tutorial-writer/) | 为初学者生成详细、正确、图文并茂的学习文档/教程：调研核验 → 依赖排序大纲 → 写作 → 配图（svg-diagram-pipeline）→ 润色（humanizer-zh）→ 三道门自查 → 交付（本地 md，可选思源） |
 | [ai-tutorial-pipeline](./ai-tutorial-pipeline/) | 用网页版 AI 按大纲逐章生成高质量教程并自动入库思源笔记，含浏览器接管、表格/公式格式校验 |
 
@@ -101,44 +125,9 @@ Antigravity 不支持 junction，走 `~/.gemini/config/skills.json` 原生声明
 | [xhs-pipeline](./xhs-pipeline/) | `personal` · 小红书信息收集流水线（profile 驱动：搜索/抓取/审读/合并入库），依赖本机浏览器登录态 |
 | [trek-mcp-ops](./trek-mcp-ops/) | `personal` · 自部署 TREK 旅行规划器（Docker + 内置 MCP 135 工具）的启停/建行程/排障手册，含本机端口与代理配置 |
 
-## 标签说明
-
-- **分组**（学术与论文 / 图与视觉 / 文档与写作 / 笔记与知识库 / 工程与项目 / 个人工作流）按**用途**划分，方便找。
-- **`personal` 标记**：绑了个人路径、账号或登录态，别人装了需要改配置才能用。没标的可以直接用。
-
-## 使用方式
-
-把 skill 文件夹复制到对应 agent 的 skills 目录即可使用（本机改用目录联结，做法见「管理本仓库」一节）。
-
-- WorkBuddy：`~/.workbuddy/skills/`
-- Claude Code：`~/.claude/skills/`
-- Codex：`~/.codex/skills/`
-- ZCode：`~/.zcode/skills/`
-- Gemini CLI：`~/.gemini/config/skills/`
-- Antigravity：`~/.gemini/config/skills.json`（原生声明式直挂主库，避开 Windows Junction 限制）
-
-## 外部技能
-
-除上表收录的自制技能外，本机还统一管理着一批外部技能——包括 `humanizer-zh`（去 AI 味润色，MIT，来自 op7418/Humanizer-zh）、`kimi-webbridge`（浏览器接管）、`mcporter`（MCP 调度）、`fireworks-tech-graph`（SVG 图形）等。它们以完全相同的 junction 方式分发到各 agent，但**不纳入本仓库版本控制**（见 `.gitignore` 的 `skillsync` 标记区块），只随目录存在于本机。
-
-其中 `humanizer-zh` 已被定为**写长文时的固定动作**：报告、方案、论文、正式文档、README、汇报材料等长文本，产出草稿后过一遍该技能再交付。
-
-这些技能在主库里的位置示意：
-
-```
-70asunflower-skills/
-├── agent-skills-sync/     自制
-├── siyuan-kernel-ops/     自制
-├── humanizer-zh/          外部 · 去 AI 味润色（写长文必过）
-├── kimi-webbridge/        外部 · 浏览器接管
-└── mcporter/              外部 · MCP 调度
-```
-
-## 管理本仓库
+## 维护本仓库
 
 以下命令都在仓库根目录执行。
-
-### 常用命令
 
 ```bash
 python scripts/skillsync.py status          # 每个 agent 每个技能的链接状态矩阵
@@ -149,32 +138,28 @@ python scripts/lint_skills.py               # 技能规范检查（frontmatter /
 python scripts/check_consistency.py         # README 与技能目录双向一致
 ```
 
-### 三种改动的完整流程
-
 | 做什么 | 动手 | 收尾（缺一步都算没做完） |
 |---|---|---|
 | **改**已有技能 | 直接编辑 | `lint_skills.py` 无 error |
 | **加**新技能 | 建 `<skill>/SKILL.md` + 在 README 加一行 | `link --apply` → `doctor` 回 0 |
 | **删**技能 | `git rm -r <skill>` + 从 README 删行 | `prune --apply` → `doctor` 回 0 |
 
-**`doctor` 不返回「问题数: 0」就不要说已完成。** 删技能尤其容易漏：主库删了目录，各 agent
-里那条 junction 变成指向空路径的空壳，不报错但行为不可预期。一次删 7 个技能会在 6 个 agent
-目录里留下 42 条断链。
-
 提交时 `.git/hooks/pre-commit` 会自动跑**一致性 + 技能规范 + 结构**三道闸门，有 error 直接拒绝。
-
-### 第三方技能
-
-本仓库是公开仓库，只收录自制技能。第三方技能（Wind/Kimi 官方、Academic pack、FBSir、
-fireworks-tech-graph 等）由 skillsync 收编到本机，在 `.gitignore` 的 `skillsync` 标记区块中排除——
-随目录存在但不入库，也不参与 README 校验。判定为第三方的不能只看「git 未跟踪」，那和「刚建的
-新技能」无法区分；区块现在**只减不增**，要排除新目录得显式 `skillsync.py gitignore --add <name>`。
-
-### 规范与约定
 
 技能怎么写、提交怎么署名、维护时该删什么，统一记在 [`AGENTS.md`](./AGENTS.md)——那是唯一权威源，
 改完跑 `python scripts/skillsync.py rules --apply` 分发到各 agent 的全局指令文件。
-细节展开见 [`agent-skills-sync`](./agent-skills-sync/) 技能。
 
 `scripts/sync_zcode_skills.py` 已废弃并内置拒绝执行的保护——旧逻辑是「先删除仓库目录、再从
 agent 目录复制」，在 junction 布局下方向相反，会把仓库内容覆盖掉。
+
+## 外部技能
+
+除上表收录的自制技能外，本机还统一管理着一批外部技能——包括 `humanizer-zh`（去 AI 味润色，MIT，来自 op7418/Humanizer-zh）、`kimi-webbridge`（浏览器接管）、`mcporter`（MCP 调度）、`fireworks-tech-graph`（SVG 图形）等。它们以完全相同的 junction 方式分发到各 agent，但**不纳入本仓库版本控制**（见 `.gitignore` 的 `skillsync` 标记区块），只随目录存在于本机。
+
+其中 `humanizer-zh` 已被定为**写长文时的固定动作**：报告、方案、论文、正式文档、README、汇报材料等长文本，产出草稿后过一遍该技能再交付。
+
+判定为第三方的不能只看「git 未跟踪」，那和「刚建的新技能」无法区分；`.gitignore` 的区块现在**只减不增**，要排除新目录得显式 `skillsync.py gitignore --add <name>`。
+
+## 许可
+
+本仓库未附开源许可证，默认保留所有权利。想直接复用其中某个技能，开个 issue 说一声即可。
