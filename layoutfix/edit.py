@@ -598,6 +598,21 @@ def _backup(fig: Path, raw: str) -> None:
         bak.write_bytes(raw.encode("utf-8"))
 
 
+def _text_label(raw: str, eid: str) -> str | None:
+    """text 元素的内容摘要（前 16 字）。清单里有了它，AI 才能把 text:11
+    对到「某行字」上——重新生成图导致编号漂移时，还能按内容重新对齐。"""
+    try:
+        t = _locate(raw, eid)
+    except KeyError:
+        return None
+    if t["name"] != "text":
+        return None
+    s0, e0 = _text_region(raw, t)
+    inner = raw[t["end"]:e0 - len("</text>")] if e0 > t["end"] else ""
+    txt = re.sub(r"\s+", " ", re.sub(r"<[^>]*>", "", inner)).strip()
+    return txt[:16] or None
+
+
 def move(fig: Path, eid: str, dx: float, dy: float, note: str = "") -> dict:
     """改文件 + 记一行清单。返回实际落地的位移。"""
     if not (math.isfinite(dx) and math.isfinite(dy)):
@@ -609,6 +624,9 @@ def move(fig: Path, eid: str, dx: float, dy: float, note: str = "") -> dict:
         raise RuntimeError(f"{eid} 位移为 0，未改动")
     write_raw(fig, new)
     op = {"id": eid, "op": "move", "dx": round(dx, 3), "dy": round(dy, 3)}
+    lbl = _text_label(raw, eid)
+    if lbl:
+        op["label"] = lbl
     if note:
         op["note"] = note
     append_op(fig, op)
@@ -632,6 +650,9 @@ def set_values(fig: Path, eid: str, attrs: dict) -> dict:
         raise RuntimeError(f"{eid} 未变化")
     write_raw(fig, new)
     op = {"id": eid, "op": "set", "to": attrs, "from": old}
+    lbl = _text_label(raw, eid)
+    if lbl:
+        op["label"] = lbl
     append_op(fig, op)
     return op
 
@@ -705,6 +726,49 @@ def set_text(fig: Path, eid: str, text: str) -> dict:
     op = {"id": eid, "op": "set_text", "to": text, "from": old_region}
     append_op(fig, op)
     return op
+
+
+def clean_ops(fig: Path) -> dict:
+    """清理清单（只重写 jsonl，图文件一个字节不动——图已是最终态）：
+
+    - 剔除零位移的 move（手抖落盘的 Δ0.00，纯噪声）；
+    - 同元素**连续**同类 op 合并：move 累加位移（合并后净 0 连带剔除）、
+      set / set_text 取最后一条的 to（from 保持第一条，撤销仍回到最初）。
+    跨元素交错的不合并——合并是为可读，不是为改历史语义。
+    """
+    ops = read_ops(fig)
+    out: list[dict] = []
+    stats = {"removed": 0, "merged": 0}
+    for op in ops:
+        kind = op.get("op")
+        if kind == "move":
+            dx, dy = float(op.get("dx") or 0), float(op.get("dy") or 0)
+            if dx == 0 and dy == 0:
+                stats["removed"] += 1
+                continue
+        prev = out[-1] if out else None
+        if (prev is not None and prev.get("id") == op.get("id")
+                and prev.get("op") == kind and kind in ("move", "set", "set_text")):
+            if kind == "move":
+                prev["dx"] = round(float(prev.get("dx") or 0) + float(op.get("dx") or 0), 3)
+                prev["dy"] = round(float(prev.get("dy") or 0) + float(op.get("dy") or 0), 3)
+                if prev["dx"] == 0 and prev["dy"] == 0:
+                    out.pop()
+                    stats["removed"] += 1
+                else:
+                    prev["at"] = op.get("at", prev.get("at"))
+                    stats["merged"] += 1
+                continue
+            # set / set_text：to 取最后一条（最终值），from 留第一条（最初值）
+            prev["to"] = op.get("to")
+            prev["at"] = op.get("at", prev.get("at"))
+            stats["merged"] += 1
+            continue
+        out.append(op)
+    if len(out) != len(ops):
+        _write_ops(fig, out)
+    return {"removed": stats["removed"], "merged": stats["merged"],
+            "before": len(ops), "after": len(out)}
 
 
 def redo_op(raw: str, op: dict) -> str:

@@ -611,7 +611,19 @@ function measureLen(el, str){
   return len;
 }
 
+/* 把已有行合并回一段原文：CJK 相邻直接拼（当初断行吃掉的是零宽边界），
+   拉丁边界补空格（"CAN0/DOUT" 是在空格处断的）。拼错一个字都比丢一个空格好。 */
+function joinLinesSmart(lines){
+  let out = lines[0] || '';
+  for(let i = 1; i < lines.length; i++){
+    const a = out.slice(-1), b = lines[i].charAt(0);
+    out += (CJK_RE.test(a) || CJK_RE.test(b)) ? lines[i] : ' ' + lines[i];
+  }
+  return out;
+}
+
 function wrapLines(el, text, maxW){
+  text = String(text).replace(/\n/g, '');   // 行界不是空格，别让它混进正文
   const tokens = [];
   let run = '';
   for(const ch of String(text)){
@@ -979,7 +991,7 @@ canvas.addEventListener('mousedown', function(e){
   if(resizing.text){
     // 文字手柄 = Word 式折行宽度：起点取现有宽度加 5% 余量，一按手柄不折行
     resizing.scale = sel.getScreenCTM().a / svgEl().getScreenCTM().a;
-    resizing.src0 = textLines(sel).join('\n');
+    resizing.src0 = joinLinesSmart(textLines(sel));
     resizing.w0 = Math.max(b.width, 10) * 1.02;
     resizing.minW = Math.max(20, measureLen(sel, '测试') || resizing.fs0 * 2);
   }
@@ -1090,7 +1102,10 @@ window.addEventListener('mouseup', async ()=>{
   restoreAttrs(el, snap);
   clearGuides();
   setSnap('—');
-  if(Math.abs(dx) < 0.15 && Math.abs(dy) < 0.15){ setHud(0,0); return; }
+  // 手抖阈值按显示口径：折算成毫米后肉眼不可见（<0.02mm）就不算一次改动。
+  // 旧阈值 0.15 单位在 96dpi 下约 0.04mm——显示成 Δ0.00 却落了盘，
+  // 清单里全是 AI 读不懂意图的废 op。
+  if(Math.hypot(dx * state.unit_mm, dy * state.unit_mm) < 0.02){ setHud(0,0); return; }
   await commit(el.dataset.ffid, dx, dy);
 });
 

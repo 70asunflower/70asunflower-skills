@@ -34,6 +34,7 @@ $PY layoutfix.py check  fig.svg --strict     # CI 门禁：有 error 即退出�
 $PY layoutfix.py tune   fig.svg              # 起本地界面，人拖
 $PY layoutfix.py nudge  fig.svg --id text:4 --dy -4   # 命令行微调（agent 用）
 $PY layoutfix.py ops    fig.svg              # 看已落地的改动清单
+$PY layoutfix.py clean  fig.svg              # 清理清单：剔零位移、合并同元素碎片
 $PY layoutfix.py ls     fig.svg              # 列出可拖元素
 ```
 

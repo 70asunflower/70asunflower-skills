@@ -10,6 +10,7 @@ $PY layoutfix.py check  fig.svg --strict        # CI 门禁，有错误即退出
 $PY layoutfix.py tune   fig.svg                 # 浏览器里拖动，改完立刻存盘 + 记清单
 $PY layoutfix.py nudge  fig.svg --id text:4 --dy -4   # 命令行微调（agent 用）
 $PY layoutfix.py ops    fig.svg                 # 看已落地的改动清单
+$PY layoutfix.py clean  fig.svg                 # 清理清单：剔零位移、合并同元素碎片
 $PY layoutfix.py ls     fig.svg                 # 列出可拖元素
 ```
 
@@ -44,6 +45,17 @@ pip install pymupdf
 
 `check` 的 JSON 输出里每条违例都带 `region`（违例区域坐标），可以直接喂给
 `snap --clip x,y,w,h` 只截那一小块来看——整图截图换成局部裁剪，视觉判断会准得多。
+
+## AI 怎么读清单（nudge.jsonl）
+
+清单是给 AI 重放和理解的，读法有讲究：
+
+1. **从干净图按序重放**：每条 op 数值自含；图层 op 自带 `parent`（父节点路径）+
+   `from`/`to`（子序号），不依赖元素编号——按文件顺序逐条应用，最终态就是人在界面里调出来的样子。
+2. **text 操作带 `label`**：move/set 的 op 里有当时的内容摘要（前 16 字）。图重新生成导致
+   `text:11` 这类编号漂移时，按 label 对回同一行字，这是跨版本重放的锚点。
+3. **先跑 `clean` 再读**：`layoutfix.py clean fig.svg` 剔除零位移废 op、合并同元素连续碎片
+   （move 累加位移、set/set_text 取最终值），图文件一个字节不动。清单从 25 条噪音变成 10 条意图。
 
 ## 两个都写：改文件 + 记清单
 

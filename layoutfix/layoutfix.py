@@ -6,6 +6,7 @@
     layoutfix tune   fig.svg              浏览器里拖动，改完立刻存盘 + 记清单
     layoutfix nudge  fig.svg --id text:3 --dx -1.2 --dy 0    命令行微调（agent 用）
     layoutfix ops    fig.svg              看已落地的改动清单
+    layoutfix clean  fig.svg              清理清单：剔零位移、合并同元素连续同类 op
     layoutfix ls     fig.svg              列出可拖元素
 
 坐标一律以图自身单位计算，同时折算成毫米（默认按 96dpi，可用 --width-mm 声明成品宽度）。
@@ -62,6 +63,15 @@ def cmd_ops(a) -> int:
     return 0
 
 
+def cmd_clean(a) -> int:
+    fig = Path(a.file)
+    st = edit.clean_ops(fig)
+    print(f"清单已清理：{st['before']} 条 → {st['after']} 条"
+          f"（合并 {st['merged']}，剔除零位移 {st['removed']}）")
+    print(f"图文件未动：{fig}")
+    return 0
+
+
 def cmd_ls(a) -> int:
     fig = Path(a.file)
     for el in edit.inventory(fig.read_text(encoding="utf-8")):
@@ -97,6 +107,10 @@ def main(argv=None) -> int:
     p = sub.add_parser("ops", help="查看改动清单")
     p.add_argument("file")
     p.set_defaults(fn=cmd_ops)
+
+    p = sub.add_parser("clean", help="清理改动清单（剔零位移、合并碎片）")
+    p.add_argument("file")
+    p.set_defaults(fn=cmd_clean)
 
     p = sub.add_parser("ls", help="列出可拖元素")
     p.add_argument("file")
