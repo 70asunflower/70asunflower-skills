@@ -185,7 +185,7 @@ undo_last(fig) -> dict | None
 **加一种检查**：
 1. `probe.py` 里写 `check_xxx(...) -> list[Violation]`
 2. 在 `run()` 里接上，`code` 用下划线命名
-3. 补进 `README` 的检查项表与 `AGENTS.md` 无需改（检查项不进规范）
+3. 补进 `README` 的检查项表；`AGENTS.md` 无需改（检查项不进规范）
 4. 在 `demo/` 找一张能触发的图，跑 `check` 确认命中数变化合理
 
 **加一种可编辑属性**：
@@ -212,8 +212,8 @@ undo_last(fig) -> dict | None
 - [ ] 清单重放：`layoutfix replay <图> <清单>`，把人工调整套到重新生成的图上
 - [ ] 锚点声明：`data-anchor="node-a:right:2mm"`，让标签跟随目标，从根上减少压字
 - [ ] `check` 增加色盲/灰度仿真与最小线宽检查
-- [ ] 与 `snap` 打通：违例区域直接喂 `snap --clip` 只截那一小块
+- [x] 与 `snap` 打通：违例区域直接喂 `snap --clip` 只截那一小块（`check --json` 输出 `region`；paper-figures 的 `preview.py --violations` 自动逐违例渲染）
 
 ## 10. 实现坑清单
 
-12 条踩过的坑（含现象、根因、修法）在 `README.md` 的「设计上踩过的坑」一节，改代码前务必先读一遍。
+15 条踩过的坑（含现象、根因、修法）在 `README.md` 的「设计上踩过的坑」一节，改代码前务必先读一遍。

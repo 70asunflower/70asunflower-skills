@@ -21,7 +21,7 @@ fig.svg  文字 19 · 形状 6 · 箭头 4
 
 ## 命令
 
-工具就是本技能目录（`~/.workbuddy-ai/skills/layoutfix/`，真实路径在
+工具就是本技能目录（各 runtime 的 `skills/layoutfix/`，junction 到仓库
 `my-skills/layoutfix/`）。**下面的命令都在该目录下执行**，图可以给绝对路径。
 
 ```bash
@@ -44,7 +44,7 @@ $PY layoutfix.py ls     fig.svg              # 列出可拖元素
 | code | 含义 | 判据 |
 |---|---|---|
 | `text_overlap` | 文字两两重叠 | 重叠高度 > 字号 12%，且面积占比 > 4% |
-| `text_occluded` | 文字被后画的不透明形状盖住 | 按绘制顺序（`seqno`）判断，覆盖 > 10% |
+| `text_occluded` | 文字被后画的不透明形状盖住 | 按绘制顺序（`seqno`）判断，覆盖 > 8% |
 | `text_out_of_canvas` | 文字超出画布被裁掉 | 渲染后会**整段消失**，截图看不出来 |
 | `arrow_dangling` | 箭头只接上了一头 | 两端都不挨框 = 图例箭头，跳过 |
 | `label_offcenter` | `text-anchor=middle` 的标签偏离容器中心 | 偏差 > 1.2mm |
