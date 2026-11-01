@@ -1,31 +1,7 @@
----
-name: satellite-computing-paper-pipeline
-description: "卫星边缘计算与空间辐射可靠性方向的论文全流程：在轨加速器遥测解析、三层正交故障树排除、带外冷断电自愈设计验证（衰减阈值 ≥10s）、学术对冲措辞、严格单调引用校验、IEEE 双栏 6 页版面预算、矢量/PNG 素材渲染、双镜像 Overleaf 打包。Triggers: 卫星计算论文, 空间辐射论文, 论文流程skills, satellite computing pipeline, paper pipeline pack, 在轨遥测, 故障树排除."
-metadata:
-  version: "1.0.0"
-  last_updated: "2026-09-27"
-  status: active
-  supported_modes:
-    - full-lifecycle
-    - telemetry-timeline
-    - orthogonal-elimination
-    - citation-audit
-    - budget-control
-    - mirror-and-pack
-  scripts:
-    - scripts/check_monotonic_citations.py
-    - scripts/sync_mirror_and_pack.py
-    - scripts/convert_figures.py
-  templates:
-    - templates/paper_zh_template.md
-    - templates/paper_en_ieee_template.tex
-    - templates/elimination_framework_template.md
-    - templates/literature_checklist_template.md
-  references:
-    - references/ieee_conference_iron_rules.md
----
+# 完整案例：卫星边缘计算论文（8 阶段走一遍）
 
-# Satellite Computing Paper Pipeline (v1.0)
+> 这是本技能的**领域案例**，展示完整流程长什么样。通用方法见 SKILL.md，
+> 卫星/辐射专有的部分（在轨遥测、质子束通量、冷断电阈值）只在这里出现，不要套到别的领域。
 
 A standardized, highly repeatable end-to-end pipeline and agent skill for authoring, reviewing, formatting, and packaging peer-reviewed engineering manuscripts in the field of **Satellite Edge Computing, Space Radiation Reliability, and Mission-Critical Embedded Systems**.
 

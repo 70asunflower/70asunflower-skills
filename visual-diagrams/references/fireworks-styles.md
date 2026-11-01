@@ -1,15 +1,4 @@
----
-name: fireworks-tech-graph-wb
-description: >-
-  WorkBuddy 适配层：调用 fireworks-tech-graph 生成生产级技术图（架构图、数据流、
-  流程图、时序图、C4、云部署、事件流、Agent/记忆系统、UML 类图、ER、网络拓扑、
-  时间线、技术概念图），导出 SVG / PNG / GIF / 离线交互 HTML。触发词：画架构图、
-  画流程图、画时序图、画 UML 图、画 ER 图、网络拓扑图、技术图、diagram、生成
-  SVG 图、生成 GIF、让这张图动起来 / Animate / Generate a GIF / 制作 GIF。
-  不适用于：照片、栅格插画、定量数据图表（这类用 chart 可视化）。
----
-
-# Fireworks Tech Graph — WorkBuddy 适配包装
+# 技术架构图：fireworks 风格库
 
 本 skill 是 [`fireworks-tech-graph`](https://github.com/yizhiyanhua-ai/fireworks-tech-graph)
 的 WorkBuddy 包装层。**原 skill 已原样安装**在

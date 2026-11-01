@@ -129,14 +129,21 @@ def check_skill(d: pathlib.Path) -> tuple[list[str], list[str]]:
     return errs, warns
 
 
-def tracked_skills() -> set[str]:
-    """git 跟踪的技能目录名。第三方技能不在其中。"""
-    try:
-        out = subprocess.run(["git", "ls-files", "--", "*/SKILL.md"],
-                             cwd=str(HUB), capture_output=True, text=True, timeout=60)
-        return {line.split("/")[0] for line in out.stdout.splitlines() if "/" in line}
-    except (OSError, subprocess.SubprocessError):
-        return set()
+def own_skills() -> set[str]:
+    """自建技能目录名 = 已跟踪的 + 新建未跟踪但未被 gitignore 的。
+
+    只取 tracked 的话，新建的技能在 git add 之前会被跳过——等于提交前查不到，
+    提交后才发现不合规。第三方技能在 .gitignore 里，两个来源都不会带进来。
+    """
+    def names(args):
+        try:
+            out = subprocess.run(["git", *args, "--", "*/SKILL.md"],
+                                 cwd=str(HUB), capture_output=True, text=True, timeout=60)
+            return {line.split("/")[0] for line in out.stdout.splitlines() if "/" in line}
+        except (OSError, subprocess.SubprocessError):
+            return set()
+
+    return names(["ls-files"]) | names(["ls-files", "--others", "--exclude-standard"])
 
 
 def main(argv):
@@ -153,7 +160,7 @@ def main(argv):
         if d.is_dir() and not d.name.startswith(".") and d.name not in SKIP_DIRS
     )
     if not check_all and not args:
-        keep = tracked_skills()
+        keep = own_skills()
         if keep:
             dirs = [d for d in dirs if d.name in keep]
 

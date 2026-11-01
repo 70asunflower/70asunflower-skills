@@ -1,9 +1,4 @@
----
-name: infographic
-description: "Create professional editorial-style HTML infographic cards from articles or URLs. Designs follow a modern magazine aesthetic with dark backgrounds (#1a1a1a), orange-red accent colors (#e8613a), large serif titles, and numbered grid cards. Always use this skill when the user asks to make an infographic, information card, visual summary, or wants to convert an article/paper/URL into a visually striking HTML card. Also use when the user says 'generate an image from this article' or 'make a visual card'. Supports both Chinese and English content."
----
-
-# Infographic Card Generator
+# 信息卡与长图：HTML/CSS 设计规范
 
 从文章或 URL 生成深色杂志风格的信息卡 HTML，支持 draw.io 或 Playwright 导出 PNG 图片。
 
