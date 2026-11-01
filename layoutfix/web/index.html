@@ -92,6 +92,8 @@
     display:flex; align-items:flex-start; justify-content:flex-start;
     background:var(--bg); min-width:0;
   }
+  /* 空格按住 = 临时平移：光标先变成手，拖动时由全局 grabbing 接管 */
+  #stage.space-pan{cursor:grab}
   #canvas{
     /* 用 auto 外边距做居中，而不是 justify-content:center。
        内容一旦宽过容器，center 会把左侧推到滚动区之外，滚不回来；
@@ -180,6 +182,7 @@
     background:var(--field); color:var(--ink); border:1px solid var(--line2);
     border-radius:3px; padding:3px 6px; text-align:right;
   }
+  #props .num:disabled{color:var(--mute); background:var(--hover)}
   #props textarea{
     width:100%; min-height:56px; resize:vertical;
     font:12.5px/1.6 "Segoe UI","Noto Sans SC","Microsoft YaHei UI",sans-serif;
@@ -293,6 +296,9 @@
   .histrow .n{font-family:ui-monospace,monospace; color:var(--mute); flex:none; min-width:24px}
   .lrow{display:flex; gap:5px; align-items:center; padding:2px 12px; font-size:12px}
   .lrow:hover{background:var(--hover2)}
+  .lrow .tw2{flex:none; width:11px; text-align:center; color:var(--mute);
+    font-size:9px; cursor:pointer; user-select:none}
+  .lrow .tw2:hover{color:var(--ink)}
   .lrow .eye{flex:none; width:20px; text-align:center; cursor:pointer;
     color:var(--mute); border:0; background:transparent; font-size:11px}
   .lrow .eye.off{opacity:.35}
@@ -435,8 +441,9 @@
   </div>
   <div class="hint">
     拖动移动 · 靠近边缘/中心/网格自动吸附 · 框选/Ctrl 加选/整体拖 · 连线端点搭在框上会跟随<br>
+    中键或按住<kbd>空格</kbd>拖 = 平移画布 · <kbd>Ctrl</kbd>+滚轮 以光标为中心缩放<br>
     <kbd>←↑↓→</kbd> 微调 · <kbd>Shift</kbd> 更细 · <kbd>[</kbd><kbd>]</kbd> 字号 · <kbd>Esc</kbd> 取消选中<br>
-    <kbd>Ctrl</kbd>+<kbd>D</kbd> 再制 · <kbd>Ctrl</kbd>+<kbd>G</kbd> 组合 · <kbd>Ctrl</kbd>+<kbd>U</kbd> 解组 · <kbd>Alt</kbd> 查距离（开发中）<br>
+    <kbd>Ctrl</kbd>+<kbd>D</kbd> 再制 · <kbd>Ctrl</kbd>+<kbd>G</kbd> 组合 · <kbd>Ctrl</kbd>+<kbd>U</kbd> 解组 · <kbd>Alt</kbd> 查净距<br>
     <kbd>G</kbd> 网格 · <kbd>S</kbd> 吸附 · <kbd>T</kbd> 主题 · <kbd>+</kbd>/<kbd>−</kbd>/<kbd>0</kbd> 缩放 · 双击参考线删除
   </div>
 </aside>
@@ -480,6 +487,14 @@ function toast(msg){
   const t = document.getElementById('toast');
   t.textContent = msg; t.classList.add('show');
   clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove('show'), 1400);
+}
+/* 图层树里可以隐藏元素（visibility:hidden 落盘）。
+   隐藏的元素 bbox 依然存在：不排除的话框选会选中看不见的东西、
+   吸附会吸向看不见的边——看起来像凭空拽住。点选（图层树）不拦，
+   选中隐藏元素正是恢复显示的入口。 */
+function isVisible(el){
+  const cs = getComputedStyle(el);
+  return cs.visibility !== 'hidden' && cs.display !== 'none';
 }
 function setHud(dx, dy){
   document.getElementById('st-dx').textContent = fmt(dx * state.unit_mm);
@@ -560,6 +575,7 @@ function collectTargets(excludeList){
   const ex = Array.isArray(excludeList) ? excludeList : [excludeList];
   s.querySelectorAll('[data-ffid]:not([data-fflock])').forEach(el=>{
     if(ex.some(x => x === el || x.contains(el) || el.contains(x))) return;
+    if(!isVisible(el)) return;
     let b;
     try{ b = el.getBBox(); }catch(_){ return; }
     if(b.width < 0.5 && b.height < 0.5) return;
@@ -1027,6 +1043,20 @@ function showProps(el){
     document.getElementById('p-h').value =
       (parseFloat(el.getAttribute('height')) || b.height).toFixed(1);
   }
+  // X/Y 回填当前值（bbox 口径，transform 元素也成立）：空输入框看着像坏了。
+  // 旋转只在无 transform 时回填——带 transform 的元素 p-rot 本来就拒绝修改，
+  // 显示一个改不了的值反而误导。
+  let pb; try{ pb = visualBox(el); }catch(_){ pb = null; }
+  document.getElementById('p-x').value = pb ? pb.x.toFixed(1) : '';
+  document.getElementById('p-y').value = pb ? pb.y.toFixed(1) : '';
+  const tf = el.getAttribute('transform');
+  const rm = tf ? String(tf).match(/rotate\(\s*([-\d.]+)/) : null;
+  const prot = document.getElementById('p-rot');
+  prot.value = rm ? rm[1] : '';
+  // 已带 transform 的元素 p-rot 的 onchange 会拒绝修改：输入框同步禁用，
+  // 「显示但改不了」比「能输入但提交被拒」诚实
+  prot.disabled = tf !== null;
+  prot.title = tf !== null ? '元素已带 transform，旋转请在生成端处理' : '';
   drawHandle(el);
 }
 
@@ -1298,11 +1328,12 @@ window.addEventListener('mouseup', async ()=>{
     if(m.moved){
       const rx = Math.min(m.x0, e.clientX), ry = Math.min(m.y0, e.clientY);
       const rw = Math.abs(e.clientX - m.x0), rh = Math.abs(e.clientY - m.y0);
-      canvas.querySelectorAll('[data-ffid]:not([data-fflock])').forEach(function(el){
-        const b = el.getBoundingClientRect();
-        if(b.left < rx + rw && b.right > rx && b.top < ry + rh && b.bottom > ry)
-          hits.push(el.dataset.ffid);
-      });
+    canvas.querySelectorAll('[data-ffid]:not([data-fflock])').forEach(function(el){
+      if(!isVisible(el)) return;
+      const b = el.getBoundingClientRect();
+      if(b.left < rx + rw && b.right > rx && b.top < ry + rh && b.bottom > ry)
+        hits.push(el.dataset.ffid);
+    });
     }
     setSelection(hits);      // 原地点一下空白 = 清空选中（与旧行为一致）
     return;
@@ -1397,6 +1428,16 @@ window.addEventListener('keydown', async e=>{
   }
   if(e.ctrlKey && e.key.toLowerCase() === 'y'){ e.preventDefault(); await redo(); return; }
   if(e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  // Ctrl+U 是浏览器「查看源代码」、Ctrl+D 是「收藏书签」：不 preventDefault 会连带触发浏览器行为
+  if(e.ctrlKey && e.key.toLowerCase() === 'd'){ e.preventDefault(); duplicateSel(); return; }
+  if(e.ctrlKey && e.key.toLowerCase() === 'g'){ e.preventDefault(); groupSel(); return; }
+  if(e.ctrlKey && e.key.toLowerCase() === 'u'){ e.preventDefault(); ungroupSel(); return; }
+  // 空格按住 = 临时平移工具（与中键等价）。输入框里打字不走这，上面已 return
+  if(e.key === ' ' && !e.ctrlKey && !e.altKey && !e.metaKey){
+    e.preventDefault();
+    if(!spaceDown){ spaceDown = true; stage.classList.add('space-pan'); }
+    return;
+  }
   if(e.key === '+' || e.key === '='){ setZoom(zoom * 1.2); return; }
   if(e.key === '-' || e.key === '_'){ setZoom(zoom / 1.2); return; }
   if(e.key === '0'){ setZoom(fitZoom()); return; }
@@ -1451,10 +1492,49 @@ function cancelNudge(commitIt){
 // 切走窗口时把没落盘的微调先落了，不然静默丢一次改动
 window.addEventListener('blur', function(){ cancelNudge(true); });
 
+/* ---------- 平移画布：中键拖 / 按住空格拖 ----------
+   capture 阶段截获：冒泡到 canvas 就会变成框选或元素拖动。
+   只改滚动位置，不碰任何元素——pan 期间元素监听根本收不到 mousedown。 */
+let spaceDown = false, panning = null;
+window.addEventListener('mousedown', function(e){
+  if(!(e.button === 1 || (spaceDown && e.button === 0))) return;
+  e.preventDefault(); e.stopPropagation();
+  panning = {x0: e.clientX, y0: e.clientY, sl: stage.scrollLeft, st: stage.scrollTop};
+  document.body.classList.add('grabbing');
+}, true);
+window.addEventListener('mousemove', function(e){
+  if(!panning) return;
+  stage.scrollLeft = panning.sl - (e.clientX - panning.x0);
+  stage.scrollTop  = panning.st - (e.clientY - panning.y0);
+});
+window.addEventListener('mouseup', function(){
+  if(!panning) return;
+  panning = null;
+  document.body.classList.remove('grabbing');
+});
+window.addEventListener('keyup', function(e){
+  if(e.key === ' '){ spaceDown = false; stage.classList.remove('space-pan'); }
+});
+// 切走窗口时空格键状态会卡住：keyup 收不到了，blur 时强制复位
+window.addEventListener('blur', function(){
+  spaceDown = false; stage.classList.remove('space-pan');
+  if(panning){ panning = null; document.body.classList.remove('grabbing'); }
+});
+
 stage.addEventListener('wheel', e=>{
   if(!e.ctrlKey) return;
   e.preventDefault();
-  setZoom(zoom * (e.deltaY > 0 ? 0.9 : 1.1));
+  // 以光标为锚点缩放：光标按住的那个内容点在缩放前后都不动。
+  // 没有锚点的话图形朝左上角跑，大图一放大就迷路。
+  const z0 = zoom;
+  const cR0 = canvas.getBoundingClientRect();
+  const offX = e.clientX - cR0.left, offY = e.clientY - cR0.top;
+  setZoom(z0 * (e.deltaY > 0 ? 0.9 : 1.1));
+  if(zoom === z0) return;        // 已顶到 0.4~4 限，画面没变就不调滚动
+  const k = zoom / z0;           // 宽高同比例：同内容点在新画布里的偏移 = 旧偏移 × k
+  const cR1 = canvas.getBoundingClientRect();
+  stage.scrollLeft += cR1.left - (e.clientX - offX * k);
+  stage.scrollTop  += cR1.top  - (e.clientY - offY * k);
 }, {passive:false});
 
 function commitMulti(moves, dx, dy){
@@ -1884,7 +1964,9 @@ try{
   // ?sel=text:4 打开即选中该元素。agent 报违例时可以直接给出可点的链接，
   // 人点开就停在出问题的那个元素上，不用在图里找。
   const qs = q.get('sel');
-  if(qs) selId = qs;
+  // 深链要同时给 selIds：refresh 的恢复分支按 selIds 找元素，
+  // 只设 selId 会被 else 分支清掉——链接打开后什么都没选中。
+  if(qs){ selId = qs; selIds = [qs]; }
   // ?theme=dark|light 强制主题——agent 截图/录屏需要稳定配色时用，不写入 localStorage
   const qt = q.get('theme');
   if(qt === 'dark' || qt === 'light') applyTheme(qt, false);
@@ -2039,7 +2121,8 @@ function renderHist(){
 document.getElementById('h-undo').onclick = function(){ undo(); };
 document.getElementById('h-redo').onclick = function(){ redo(); };
 
-/* ---------- 图层树（显隐 / 点选 / 组合解组入口） ---------- */
+/* ---------- 图层树（显隐 / 点选 / 折叠 / 组合解组入口） ---------- */
+const foldedG = new Set();    // 收起的组 eid（会话内视图状态，不落盘）
 function renderLayers(){
   const box = document.getElementById('layers');
   box.innerHTML = '';
@@ -2051,6 +2134,18 @@ function renderLayers(){
       const row = document.createElement('div');
       row.className = 'lrow';
       row.style.paddingLeft = (12 + depth * 14) + 'px';
+      const hasKids = n.kids && n.kids.length;
+      // 折叠箭头：组可收起。几百行的树不折叠没法读，全展开仍是默认（行为不变）
+      const tw = document.createElement('span');
+      tw.className = 'tw2';
+      tw.textContent = hasKids ? (foldedG.has(n.eid) ? '▸' : '▾') : '·';
+      tw.style.visibility = hasKids ? 'visible' : 'hidden';
+      tw.title = hasKids ? '展开 / 收起子图层' : '';
+      if(hasKids) tw.onclick = function(e){
+        e.stopPropagation();
+        foldedG.has(n.eid) ? foldedG.delete(n.eid) : foldedG.add(n.eid);
+        renderLayers();
+      };
       const eye = document.createElement('button');
       eye.className = 'eye' + (n.hidden ? ' off' : '');
       eye.textContent = n.hidden ? '✕' : '👁';
@@ -2062,12 +2157,12 @@ function renderLayers(){
       const nm = document.createElement('span');
       nm.className = 'nm' + (selIds.includes(n.eid) ? ' sel' : '');
       nm.textContent = (n.gid ? n.gid + ' · ' : '') + n.eid +
-        (n.kids && n.kids.length ? ' {' + n.kids.length + '}' : '');
+        (hasKids ? ' {' + n.kids.length + '}' : '');
       nm.title = '点击选中；组合用 Ctrl+G，解组 Ctrl+U';
       nm.onclick = function(){ setSelection([n.eid]); };
-      row.appendChild(eye); row.appendChild(nm);
+      row.appendChild(tw); row.appendChild(eye); row.appendChild(nm);
       parent.appendChild(row);
-      if(n.kids && n.kids.length) build(n.kids, depth + 1, parent);
+      if(hasKids && !foldedG.has(n.eid)) build(n.kids, depth + 1, parent);
     });
   };
   build(tree, 0, box);
@@ -2075,6 +2170,28 @@ function renderLayers(){
 function countNodes(t){ return t.reduce(function(s, n){ return s + 1 + countNodes(n.kids || []); }, 0); }
 document.getElementById('l-group').onclick = function(){ groupSel(); };
 document.getElementById('l-ungroup').onclick = function(){ ungroupSel(); };
+/* Ctrl+D 原位再制：服务端 /copy 一步落盘（op=add，撤销按 xml 守卫摘除），
+   副本落在原元素正后方、编号可精确推出。原位不偏移——修版面的语境下
+   副本是「再改一版」用的，人随后自己拖；选中的自动切到副本。 */
+function duplicateSel(){
+  const el = primaryEl();
+  if(!el){ toast('先选中一个元素'); return; }
+  if(selIds.length > 1){ toast('再制只支持单元素；多选请先 Ctrl+G 组合'); return; }
+  if(el.hasAttribute('data-fflock')){ toast('锁定的背景板不能再制'); return; }
+  queue(async function(){
+    try{
+      const r = await fetch('/copy', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({id: el.dataset.ffid})
+      });
+      const j = await r.json();
+      if(!j.ok) throw new Error(j.error || '再制失败');
+      await refresh();
+      if(j.new) setSelection([j.new]);
+      toast('已原位再制 → ' + j.new + '，拖开即可');
+    }catch(err){ toast('失败 ' + err.message); await refresh(); }
+  });
+}
 function groupSel(){
   if(selIds.length < 2){ toast('先选中至少两个元素（Ctrl+点选 或 框选）'); return; }
   queue(async function(){
@@ -2305,7 +2422,7 @@ function showDistances(){
   let b; try{ b = visualBox(p); }catch(_){ return; }
   let best = null;
   svgEl().querySelectorAll('[data-ffid]:not([data-fflock])').forEach(function(el){
-    if(el === p) return;
+    if(el === p || !isVisible(el)) return;
     let o; try{ o = visualBox(el); }catch(_){ return; }
     const cands = [
       [b.x - (o.x + o.width), '← '], [o.x - (b.x + b.width), '→ '],

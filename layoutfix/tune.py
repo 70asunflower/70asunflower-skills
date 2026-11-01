@@ -36,16 +36,39 @@ iframe{width:1200px;height:720px;border:0;display:block}
 <iframe id="fr" src="/"></iframe>
 <script>
 const out = [], log = document.getElementById('log'), fr = document.getElementById('fr');
+window.onerror = function(m, s, l){ log.innerHTML += '<br>ERR ' + m + ' @' + (s||'') + ':' + l; return false; };
 const say = (s, ok) => out.push('<span class="' + (ok === false ? 'fail' : 'pass') + '">' + s + '</span>');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const state = () => fetch('/state').then(r => r.json());
 const fig = () => fetch('/fig.svg').then(r => r.text());
 
 fr.onload = async () => {
-  await sleep(1000);
+  log.innerHTML = 'onload-fired;';
   const W = fr.contentWindow, D = fr.contentDocument;
-  const el = D.querySelector('[data-ffid="text:4"]');
-  if(!el){ log.innerHTML = '<span class="fail">FAIL 找不到 text:4</span>'; return; }
+  // iframe 文档在 onload 时未必就绪（无头虚拟时间下尤甚）：轮询等目标元素出现
+  let el = null;
+  for(let i = 0; i < 50 && !el; i++){
+    el = D && D.querySelector && D.querySelector('[data-ffid="text:4"]');
+    if(!el) await sleep(100);
+  }
+  log.innerHTML += 'polled=' + (el ? 'hit' : 'miss') + ';';
+  if(!el){
+    let diag = 'FAIL 找不到 text:4';
+    try{
+      diag += '<br>readyState=' + (D && D.readyState)
+        + '<br>url=' + (W && W.location && W.location.href)
+        + '<br>body=' + (D && D.body ? D.body.tagName : 'null')
+        + '<br>ffid_count=' + (D && D.querySelectorAll ? D.querySelectorAll('[data-ffid]').length : -1)
+        + '<br>has_canvas=' + (D && D.getElementById ? !!D.getElementById('canvas') : '-');
+    }catch(e){ diag += '<br>diag_error=' + e; }
+    log.innerHTML = '<span class="fail">' + diag + '</span>';
+    return;
+  }
+  await sleep(800);   // 等首次 refresh() 跑完，后面的 /state 断言才有干净基线
+  // refresh 会整体替换画布 DOM：上面的 el 可能已是被移除的孤立节点，
+  // 对它 dispatchEvent 冒泡不到 canvas——必须在替换完成后重新取引用
+  el = D.querySelector('[data-ffid="text:4"]');
+  if(!el){ log.innerHTML = '<span class="fail">FAIL refresh 后 text:4 消失</span>'; return; }
   const before = await state();
   const mk = (t,x,y) => new W.MouseEvent(t,{bubbles:true,cancelable:true,clientX:x,clientY:y});
   const r = el.getBoundingClientRect();
@@ -57,6 +80,12 @@ fr.onload = async () => {
   await sleep(150);
   const props = D.getElementById('props');
   const fsVal = D.getElementById('p-fs').value;
+  if(props.style.display === 'none'){
+    out.push('<span class="fail">DBG st_id=' + D.getElementById('st-id').textContent
+      + ' tag=' + el.tagName + ' lock=' + el.hasAttribute('data-fflock')
+      + ' ffid=' + el.getAttribute('data-ffid')
+      + ' hidden=' + (W.getComputedStyle(el).visibility === 'hidden') + '</span>');
+  }
   say('点选 text:4  属性面板=' + (props.style.display !== 'none' ? '显示' : '隐藏')
       + '  字号=' + fsVal + '  宽=' + D.getElementById('p-w').value, props.style.display !== 'none');
 
