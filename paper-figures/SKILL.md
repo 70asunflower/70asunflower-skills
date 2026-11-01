@@ -1,6 +1,6 @@
 ---
 name: paper-figures
-description: "学术论文图表、视觉摘要与学术海报全流程生产中枢。内置顶刊版面预设（Nature/Science/Cell/IEEE/Elsevier）、色盲无障碍（CVD）与灰度仿真质检、多子图马赛克拼版（subplot_mosaic）、Graphical Abstract 双轨生成（1:1方版/2.5:1横版）、0度水平文字铁律、OpenXML DrawingML 原生矢量控制、中文标点避头尾禁则与数据诚信契约。支持五大管线路由：投稿级矢量数据图与3D爆炸图、PPT示意图转矢量、Origin直通可编辑OPJU、Graphical Abstract视觉摘要双轨、学术海报易拉宝双轨。Triggers: 画论文图, 画个图, 绘制图表, 论文插图, 科研画图, 数据画图, figure for paper, IEEE figure, plot paper figure, Origin 画图, OriginPro 可编辑图, OPJU, 导师要 Origin 格式, 图命名, 图放哪, 转成矢量图, ppt转pdf, 坐标画布, 元素移动, 标签位置, 图上定位, 爆炸图, 层级图, 3D 结构图, exploded view, 子图题注, subcaption, 学术海报, 海报设计, 易拉宝, 会议海报, 论文海报, academic poster, poster pptx, 导出pptx, 可编辑海报, 易拉宝排版, 海报绘图, poster design, rollup banner, 展板设计, 学术展板, 海报转pptx, 海报导出可编辑, matplotlib转pptx, 双轨一致性, Nature绘图, Science绘图, 顶刊插图, 视觉摘要, graphical abstract, 色盲检测, 色盲友好, check colorblind, 多子图拼版, multipanel, 子图拼图, 柱状图散点, 统计图绘图."
+description: "学术论文图表、视觉摘要与学术海报全流程生产中枢。内置顶刊版面预设（Nature/Science/Cell/IEEE/Elsevier）、色盲无障碍（CVD）与灰度仿真质检、多子图马赛克拼版（subplot_mosaic）、Graphical Abstract 双轨生成（1:1方版/2.5:1横版）、0度水平文字铁律、OpenXML DrawingML 原生矢量控制、中文标点避头尾禁则与数据诚信契约。支持五大管线路由：投稿级矢量数据图与3D爆炸图、PPT示意图转矢量、Origin直通可编辑OPJU、Graphical Abstract视觉摘要双轨、学术海报易拉宝双轨。Triggers: 画论文图, 画个图, 绘制图表, 论文插图, 科研画图, 数据画图, figure for paper, IEEE figure, plot paper figure, Origin 画图, OriginPro 可编辑图, OPJU, 导师要 Origin 格式, 图命名, 图放哪, 转成矢量图, ppt转pdf, 坐标画布, 元素移动, 标签位置, 图上定位, 爆炸图, 层级图, 3D 结构图, exploded view, 子图题注, subcaption, 学术海报, 海报设计, 易拉宝, 会议海报, 论文海报, academic poster, poster pptx, 导出pptx, 可编辑海报, 易拉宝排版, 海报绘图, poster design, rollup banner, 展板设计, 学术展板, 海报转pptx, 海报导出可编辑, matplotlib转pptx, 双轨一致性, Nature绘图, Science绘图, 顶刊插图, 视觉摘要, graphical abstract, 色盲检测, 色盲友好, check colorblind, 多子图拼版, multipanel, 子图拼图, 柱状图散点, 统计图绘图. 版面体检与微调交给 layoutfix 技能。"
 metadata:
   version: "1.6.0"
   last_updated: "2026-10-18"
@@ -85,6 +85,21 @@ PyMuPDF 渲染 PDF 为 300 DPI 基准图 $\to$ PowerPoint COM 无头静默导出
 - **原始散点叠加**：样本量 $n \le 50$ 的柱状图/箱线图，上方必须叠加半透明抖动真实散点（Jittered Stripplot），展示分布真实性。
 - **误差线与星号**：必须在同名 `_notes.txt` 中严格声明误差线定义（SD vs SEM vs 95% CI）与单调显著性口径（$*p<0.05, **p<0.01, ***p<0.001$, ns）。
 
+### 1.7 【版面体检与微调 → 交给 layoutfix 技能】
+画完的 SVG/PDF 不要靠截图目测版面。交给 **`layoutfix` 技能**（独立技能，见 `../layoutfix/SKILL.md`）：
+
+- `layoutfix.py check <图> --strict` —— 查字压图 / 文字被盖 / 超画布 / 箭头悬空 / 标签偏心，有 error 即退出码 7
+- `layoutfix.py tune <图>` —— 起本地界面，人拖一下即吸附对齐，位移落成毫米清单
+- 需要看图时**只截违例区域**：`check --json` 的 `region` 喂 `scripts/preview.py --clip`
+
+**执行顺序**：程序能断言的问题不许花截图成本。
+
+### 1.8 【出图后看一眼：局部渲染，不整图截图】
+- **原则**：能用几何断言的问题不截图；必须看时**只看违例区域**。整图截图既贵又看不清 3px 的压字，200×120 的局部裁剪判断准确率高得多。
+- **SVG / PDF**：`scripts/preview.py <图> [--dpi 200] [--clip x0,y0,x1,y1]` —— PyMuPDF 直出 PNG，零额外依赖。加 `--violations` 会自动调 layoutfix，把每个违例区域各渲一张小图并打印对应说明。
+- **HTML 海报 / 演示页**：`scripts/snap/snap.mjs`（随附副本；真相源与同步方式见 `scripts/snap/SOURCE.md`），支持截图 / `--audit` 体检 / `--diff` 像素回归 / `--check` 基线。
+- **不要用整页截图代替局部**：先 `layoutfix check --json` 拿 `region`，再 `preview.py --clip` 只渲那一块。
+
 ---
 
 ## 二、专门业务管线实现指南
@@ -157,6 +172,8 @@ PyMuPDF 渲染 PDF 为 300 DPI 基准图 $\to$ PowerPoint COM 无头静默导出
 | **`template_poster_pptx.py`** | 易拉宝 1:2 可编辑 PPTX 模板 | 30x80cm 规格、全原生矢量、正文字号 $\ge 15\text{pt}$ |
 | **`canvas.py`** | 坐标画布协议与碰撞检测 | `Canvas(fig)`，输出 `*_grid.png` 与 `*_layout.txt` 坐标清单 |
 | **`pptx_to_vector.py`** | PPT 示意图转出版级矢量 PDF | COM 导出整副 PDF + PyMuPDF 实测包围盒裁切 |
+| **`preview.py`** | 图渲染成 PNG 供 agent 看 | `--clip` 只渲局部；`--violations` 自动逐条渲违例区域；PyMuPDF 直出零依赖 |
+| **`snap/snap.mjs`** | HTML 页面截图/体检/像素回归 | 海报与演示页专用；随附副本，真相源见 `snap/SOURCE.md` |
 
 ---
 
@@ -166,4 +183,5 @@ PyMuPDF 渲染 PDF 为 300 DPI 基准图 $\to$ PowerPoint COM 无头静默导出
 - 转换用 `DispatchEx`（独立进程），用户开着 PowerPoint 时**永不 Quit**、不附加其会话。
 - 用户对版式的手工调整优先级高于脚本；以用户文件为准，先问再覆盖。
 - 海报与视觉摘要任务**严禁仅交付图片或单向 PDF**，必须主动奉上可自由修改的 PPTX 源码并声明缩放比例。
-- **出图后自查四部曲**：① 图内文字是否 0 度水平？② 有无孤悬标点掉落行首？③ 色盲质检是否通过？④ 柱状图 Y 轴是否从 0 起始？
+- **出图后自查五部曲**：① 图内文字是否 0 度水平？② 有无孤悬标点掉落行首？③ 色盲质检是否通过？④ 柱状图 Y 轴是否从 0 起始？⑤ **`layoutfix check` 是否 0 error**（字压图/文字被盖/超画布/箭头悬空/标签偏心）——需已安装 `layoutfix` 技能，没装就人工看一遍。
+- **示意图交付前必须过 `layoutfix check --strict`**（若已安装该技能）；报出违例时先修再交，不要把带压字的图给用户。

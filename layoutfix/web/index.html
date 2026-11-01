@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="data:,">
+<title>layoutfix</title>
+<style>
+  :root{
+    --bg:#eceded; --panel:#fbfbfa; --line:#d5d5d1; --line2:#c3c3be;
+    --ink:#1c1c1a; --mute:#78776f; --sel:#1a63c8; --snap:#d93a3a;
+    --ok:#2c7a4b; --err:#b02a20; --warn:#8a6100;
+    --hover:#e9e9e6; --hover2:#f0f2f6; --head:#f2f2ef; --field:#fff;
+    --on:#dbe4f0; --onb:#b7c7de; --rule:#eceae6; --kbd:#efefec; --artboard:#fff;
+  }
+  html[data-theme="dark"]{
+    --bg:#131312; --panel:#222220; --line:#31312d; --line2:#3e3e39;
+    --ink:#e8e8e3; --mute:#8b8b83; --sel:#5aa3f0; --snap:#f07070;
+    --ok:#6cbd88; --err:#e07a6c; --warn:#d6a23c;
+    --hover:#2c2c29; --hover2:#2a2f36; --head:#282825; --field:#1c1c1a;
+    --on:#26405c; --onb:#3a5c80; --rule:#2b2b28; --kbd:#2b2b28; --artboard:#1e1e1c;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    font:11px/1.45 "Segoe UI","Noto Sans SC","Microsoft YaHei UI",sans-serif;
+    background:var(--bg); color:var(--ink);
+    display:grid; grid-template-rows:34px 1fr 26px;
+    /* 窄窗口下侧栏按比例收缩，否则 296px 会把画布压到只剩一半 */
+    grid-template-columns:1fr clamp(236px, 26vw, 296px);
+    grid-template-areas:"bar bar" "stage side" "status status";
+    height:100vh; overflow:hidden;
+  }
+
+  #topbar{
+    grid-area:bar; display:flex; align-items:center; gap:2px;
+    padding:0 8px; background:var(--panel); border-bottom:1px solid var(--line2);
+  }
+  .grp{display:flex; align-items:center; gap:1px}
+  .vsep{width:1px; height:18px; background:var(--line2); margin:0 7px}
+  button{
+    font:inherit; font-size:11px; color:var(--ink); background:transparent;
+    border:1px solid transparent; border-radius:3px; padding:3px 7px;
+    cursor:pointer; line-height:1.3; white-space:nowrap;
+  }
+  button:hover{background:var(--hover); border-color:var(--line)}
+  button.on{background:var(--on); border-color:var(--onb)}
+  button:active{background:var(--hover)}
+  #topbar .num{
+    font-family:"Cascadia Mono",Consolas,monospace; font-size:11px;
+    background:var(--field); border:1px solid var(--line2); border-radius:3px;
+    padding:2px 4px; width:44px; text-align:center; color:var(--ink);
+  }
+  .lbl{color:var(--mute); padding:0 4px 0 2px}
+  .seg{display:inline-flex}
+  .seg button{border-radius:0}
+  .seg button:first-child{border-radius:3px 0 0 3px}
+  .seg button:last-child{border-radius:0 3px 3px 0; margin-left:-1px}
+  button[disabled]{color:var(--mute); opacity:.4; cursor:default;
+                   background:transparent; border-color:transparent}
+  #zoomv{
+    font-family:"Cascadia Mono",Consolas,monospace; min-width:42px;
+    text-align:center; color:var(--mute);
+  }
+  #title{
+    margin-left:auto; color:var(--mute); font-size:11px; padding-right:4px;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:40%;
+  }
+
+  #stage{
+    grid-area:stage; overflow:auto; padding:22px; position:relative;
+    display:flex; align-items:flex-start; justify-content:flex-start;
+    background:var(--bg);
+  }
+  #canvas{
+    /* 用 auto 外边距做居中，而不是 justify-content:center。
+       内容一旦宽过容器，center 会把左侧推到滚动区之外，滚不回来；
+       auto 外边距在没有余量时会自动收成 0，左边缘始终可达。 */
+    margin:0 auto; flex:none;
+    background:var(--artboard); border:1px solid var(--line2);
+    box-shadow:0 1px 4px rgba(0,0,0,.08);
+    width:100%; max-width:1180px; line-height:0;
+  }
+  #canvas svg{display:block; width:100%; height:auto}
+  html.invert #canvas svg{filter:invert(1) hue-rotate(180deg)}
+  #canvas svg [data-ffid]{cursor:move}
+  #canvas svg [data-fflock]{cursor:default}
+  #canvas svg [data-ffid]:not([data-fflock]):hover{
+    outline:1px solid #7aa7e0; outline-offset:0;
+  }
+  #canvas svg .ff-sel{outline:1.5px solid var(--sel) !important; outline-offset:0}
+  #canvas svg .ff-hit{outline:2px solid var(--err) !important; outline-offset:1px}
+
+  #statusbar{
+    grid-area:status; display:flex; align-items:center; gap:0;
+    background:var(--panel); border-top:1px solid var(--line2);
+    font-family:"Cascadia Mono",Consolas,monospace; font-size:11px;
+    color:var(--mute); overflow:hidden;
+  }
+  #statusbar span{padding:0 10px; border-right:1px solid var(--line)}
+  #statusbar b{color:var(--ink); font-weight:500}
+  #statusbar .grow{flex:1; border-right:0}
+  #st-snap.hot{color:var(--snap)}
+
+  #side{
+    grid-area:side;
+    background:var(--panel); border-left:1px solid var(--line2);
+    display:flex; flex-direction:column; overflow:hidden;
+  }
+  .sec{border-bottom:1px solid var(--line); display:flex; flex-direction:column; min-height:0}
+  .sec > h2{
+    margin:0; padding:6px 10px; font-size:11px; font-weight:500;
+    color:var(--mute); background:var(--head); border-bottom:1px solid var(--line);
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .sec > h2 .cnt{font-family:ui-monospace,monospace; color:var(--ink)}
+  #viol{list-style:none; margin:0; padding:0; overflow:auto; max-height:46vh}
+  #viol li{
+    padding:5px 10px; border-bottom:1px solid var(--rule); cursor:pointer;
+    display:flex; gap:6px; align-items:flex-start;
+  }
+  #viol li:hover{background:var(--hover2)}
+  #viol .sev{flex:none; width:3px; align-self:stretch; border-radius:1px; margin-top:1px}
+  #viol li.err .sev{background:var(--err)}
+  #viol li.warn .sev{background:var(--warn)}
+  #viol .body{min-width:0}
+  #viol .cat{
+    font-size:10px; color:var(--mute); letter-spacing:.02em;
+    display:flex; gap:6px; align-items:baseline;
+  }
+
+  #viol .msg{font-size:11px; line-height:1.4; word-break:break-word}
+  #viol .empty{padding:9px 10px; color:var(--ok)}
+
+  #props h2 .cnt{margin-left:4px}
+  #props .hintid{
+    font-weight:400; color:var(--mute); overflow:hidden;
+    text-overflow:ellipsis; white-space:nowrap; margin-left:6px; flex:1;
+    text-align:right;
+  }
+  #props .rows{display:grid; grid-template-columns:auto 1fr;
+                gap:5px 8px; padding:8px 10px; align-items:center}
+  #props label{color:var(--mute); white-space:nowrap}
+  #props .num{
+    width:100%; font-family:"Cascadia Mono",Consolas,monospace; font-size:11px;
+    background:var(--field); color:var(--ink); border:1px solid var(--line2);
+    border-radius:3px; padding:2px 4px; text-align:right;
+  }
+  #props .btnrow{display:flex; align-items:center; gap:3px;
+                 padding:0 10px 8px; flex-wrap:wrap}
+  #props .btnrow .lbl{color:var(--mute); margin-right:2px}
+  #props button.mini{padding:2px 6px; font-size:11px;
+                     border:1px solid var(--line2); border-radius:3px}
+  #props button.mini.on{background:var(--on); border-color:var(--onb)}
+  #ops{overflow:auto; max-height:22vh; padding:2px 0}
+  #ops .op{
+    display:flex; gap:8px; align-items:baseline; padding:3px 10px;
+    cursor:pointer; border-bottom:1px solid var(--rule);
+  }
+  #ops .op:last-child{border-bottom:0}
+  #ops .op:hover{background:var(--hover2)}
+  #ops .op .id{
+    font-family:"Cascadia Mono",Consolas,monospace; font-size:10px;
+    color:var(--mute); flex:none; max-width:96px; overflow:hidden;
+    text-overflow:ellipsis; white-space:nowrap;
+  }
+  #ops .op .v{
+    font-family:"Cascadia Mono",Consolas,monospace; font-size:10px;
+    color:var(--ink); margin-left:auto; text-align:right;
+  }
+  #ops .empty{padding:8px 10px; color:var(--mute); line-height:1.5}
+  .hint{
+    margin-top:auto; padding:7px 10px; color:var(--mute); font-size:10px;
+    line-height:1.7; border-top:1px solid var(--line);
+  }
+  .hint kbd{
+    font-family:ui-monospace,monospace; font-size:10px; color:var(--ink);
+    background:var(--kbd); border:1px solid var(--line2); border-radius:2px;
+    padding:0 3px;
+  }
+  #toast{
+    position:fixed; left:50%; bottom:38px; transform:translateX(-50%);
+    background:var(--ink); color:var(--panel); padding:5px 12px; border-radius:3px;
+    font-size:11px; font-family:ui-monospace,monospace;
+    opacity:0; transition:opacity .15s; pointer-events:none; z-index:9;
+  }
+  #toast.show{opacity:.94}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <div class="grp">
+    <button id="t-grid" class="on" title="显示网格 (G)">网格</button>
+    <span class="lbl">步距</span>
+    <input id="grid-step" class="num" value="20">
+    <button id="t-snap" class="on" title="自动吸附 (S)">吸附</button>
+  </div>
+  <div class="vsep"></div>
+  <div class="grp">
+    <button id="zoom-out" title="缩小 (Ctrl+滚轮)">−</button>
+    <span id="zoomv">100%</span>
+    <button id="zoom-in" title="放大">+</button>
+    <button id="zoom-fit">适应</button>
+  </div>
+  <div class="vsep"></div>
+  <button id="undo" title="撤销 (Ctrl+Z)">撤销</button>
+  <button id="redo" title="重做 (Ctrl+Shift+Z)">重做</button>
+  <div class="vsep"></div>
+  <span class="seg">
+    <button id="t-light" title="亮色主题 (T)">亮</button>
+    <button id="t-dark" title="暗色主题 (T)">暗</button>
+  </span>
+  <button id="t-invert" title="暗色下把图反相显示，只影响预览、不改文件">反相</button>
+  <div id="title"></div>
+</div>
+
+<div id="stage"><div id="canvas">{{SVG}}</div></div>
+
+<div id="statusbar">
+  <span>元素 <b id="st-id">—</b></span>
+  <span>dx <b id="st-dx">—</b> mm</span>
+  <span>dy <b id="st-dy">—</b> mm</span>
+  <span id="st-snap">吸附 —</span>
+  <span class="grow"></span>
+  <span id="st-pos">—</span>
+</div>
+
+<aside id="side">
+  <div class="sec" id="props" style="display:none">
+    <h2>属性 <span class="cnt" id="p-id">—</span>
+      <span class="hintid" id="p-hint"></span></h2>
+    <div class="rows" id="rows-text">
+      <label>字号</label><input id="p-fs" class="num" type="number" step="0.5">
+    </div>
+    <div class="rows" id="rows-box">
+      <label>宽</label><input id="p-w" class="num" type="number" step="1">
+      <label>高</label><input id="p-h" class="num" type="number" step="1">
+    </div>
+    <div class="btnrow" id="row-nosize" style="display:none">
+      <span class="lbl">该元素没有宽高属性，只能调图层</span>
+    </div>
+    <div class="btnrow" id="row-text">
+      <span class="lbl">对齐</span>
+      <button class="mini" data-anchor="start" title="左对齐">左</button>
+      <button class="mini" data-anchor="middle" title="水平居中">中</button>
+      <button class="mini" data-anchor="end" title="右对齐">右</button>
+    </div>
+    <div class="btnrow" id="row-order">
+      <span class="lbl">图层</span>
+      <button class="mini" data-order="front" title="置于最上层">置顶</button>
+      <button class="mini" data-order="forward" title="上移一层">上移</button>
+      <button class="mini" data-order="backward" title="下移一层">下移</button>
+      <button class="mini" data-order="back" title="置于最下层">置底</button>
+    </div>
+  </div>
+  <div class="sec">
+    <h2>违例 <span class="cnt" id="vcnt">0</span></h2>
+    <ul id="viol"></ul>
+  </div>
+  <div class="sec">
+    <h2>改动清单 <span class="cnt" id="ocnt">0</span></h2>
+    <div id="ops">—</div>
+  </div>
+  <div class="hint">
+    拖动移动 · 靠近边缘/中心/网格自动吸附<br>
+    <kbd>←↑↓→</kbd> 微调 · <kbd>Shift</kbd> 更细 · <kbd>[</kbd><kbd>]</kbd> 字号<br>
+    <kbd>G</kbd> 网格 · <kbd>S</kbd> 吸附 · <kbd>T</kbd> 主题<br>
+    <kbd>Ctrl</kbd>+<kbd>Z</kbd> 撤销 · <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> 重做
+  </div>
+</aside>
+
+<div id="toast"></div>
+
+<script>
+const UNIT_MM = {{UNIT_MM}};
+const NS = 'http://www.w3.org/2000/svg';
+let state = {violations: [], ops: [], touched: [], unit_mm: UNIT_MM};
+let sel = null, selId = null, dragging = null, resizing = null, zoom = 1;
+let gridOn = true, snapOn = true, gridStep = 20, invert = true;
+// 所有写操作串成一条链。裸 fetch 并发时，/undo 可能抢在 /apply 前面到，
+// 撤掉的是上一条 op，用户这次撤销白按，文件里还多一条不该有的改动。
+let reqChain = Promise.resolve();
+function queue(fn){
+  const p = reqChain.then(fn, fn);
+  reqChain = p.then(()=>{}, ()=>{});
+  return p;
+}
+
+const stage = document.getElementById('stage');
+const canvas = document.getElementById('canvas');
+const svgEl = () => canvas.querySelector('svg');
+
+function toUser(evt){
+  const s = svgEl();
+  if(!s) return {x:0, y:0};
+  const pt = s.createSVGPoint();
+  pt.x = evt.clientX; pt.y = evt.clientY;
+  return pt.matrixTransform(s.getScreenCTM().inverse());
+}
+function pxToUser(px){
+  const s = svgEl();
+  const m = s && s.getScreenCTM();
+  return m ? px / m.a : px;
+}
+function fmt(v){ return (Math.abs(v) < 0.005 ? 0 : v).toFixed(2); }
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove('show'), 1400);
+}
+function setHud(dx, dy){
+  document.getElementById('st-dx').textContent = fmt(dx * state.unit_mm);
+  document.getElementById('st-dy').textContent = fmt(dy * state.unit_mm);
+}
+function setSnap(txt){
+  const el = document.getElementById('st-snap');
+  el.textContent = '吸附 ' + txt;
+  el.classList.toggle('hot', txt !== '—');
+}
+
+/* ---------- 网格 ---------- */
+function niceStep(v){
+  const p = Math.pow(10, Math.floor(Math.log10(Math.max(v, 1e-6))));
+  const n = v / p;
+  return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * p;
+}
+function autoGridStep(){
+  const s = svgEl();
+  const vb = s && s.viewBox.baseVal;
+  return vb && vb.width ? niceStep(vb.width / 64) : 20;
+}
+function gridInk(){
+  // 永远用黑色画。网格 <g> 在 SVG 内部，暗色反相时会被一起翻转成白线——
+  // 如果这里按主题返回白色，反相后就变黑、落在黑底上彻底看不见。
+  return '#000000';
+}
+
+function drawGrid(){
+  const s = svgEl();
+  if(!s) return;
+  let g = s.querySelector('#ff-grid');
+  if(!g){
+    g = document.createElementNS(NS, 'g');
+    g.setAttribute('id','ff-grid');
+    g.setAttribute('pointer-events','none');
+    s.appendChild(g);
+  }
+  g.innerHTML = '';
+  if(!gridOn) return;
+
+  const vb = s.viewBox.baseVal;
+  const W = vb && vb.width ? vb.width : 1000;
+  const H = vb && vb.height ? vb.height : 1000;
+  const step = Math.max(1, gridStep);
+  const major = step * 5;
+  const sw = Math.max(0.55, W / 1700);
+
+  // 必须用 createElementNS 建线。SVG 元素上设 innerHTML 会按 HTML 解析，
+  // <pattern>/<path> 会落进 HTML 命名空间，静默失效——网格一条都画不出来。
+  const frag = document.createDocumentFragment();
+  const line = (x1, y1, x2, y2, op, w)=>{
+    const l = document.createElementNS(NS, 'line');
+    l.setAttribute('x1', x1); l.setAttribute('y1', y1);
+    l.setAttribute('x2', x2); l.setAttribute('y2', y2);
+    l.setAttribute('stroke', gridInk());
+    l.setAttribute('stroke-opacity', op);
+    l.setAttribute('stroke-width', w);
+    frag.appendChild(l);
+  };
+  const eps = 1e-6;
+  for(let x = step; x < W - eps; x += step){
+    const isMajor = Math.abs(x / major - Math.round(x / major)) < 1e-6;
+    line(x, 0, x, H, isMajor ? 0.34 : 0.145, isMajor ? sw * 1.4 : sw);
+  }
+  for(let y = step; y < H - eps; y += step){
+    const isMajor = Math.abs(y / major - Math.round(y / major)) < 1e-6;
+    line(0, y, W, y, isMajor ? 0.34 : 0.145, isMajor ? sw * 1.4 : sw);
+  }
+  g.appendChild(frag);
+}
+
+/* ---------- 吸附 ---------- */
+const SNAP_PX = 6;
+function collectTargets(exclude){
+  const s = svgEl(), xs = [], ys = [];
+  if(!s) return {xs, ys};
+  s.querySelectorAll('[data-ffid]:not([data-fflock])').forEach(el=>{
+    if(el === exclude || el.contains(exclude) || exclude.contains(el)) return;
+    let b;
+    try{ b = el.getBBox(); }catch(_){ return; }
+    if(b.width < 0.5 && b.height < 0.5) return;
+    xs.push(b.x, b.x + b.width / 2, b.x + b.width);
+    ys.push(b.y, b.y + b.height / 2, b.y + b.height);
+  });
+  return {xs, ys};
+}
+function bestSnap(values, targets, tol){
+  let best = null;
+  for(const t of targets){
+    for(const v of values){
+      const d = t - v;
+      if(Math.abs(d) <= tol && (!best || Math.abs(d) < Math.abs(best.d)))
+        best = {d, at:t};
+    }
+  }
+  return best;
+}
+function snapAll(base, targets, dx, dy, tol){
+  const mx = [base.x + dx, base.x + base.width/2 + dx, base.x + base.width + dx];
+  const my = [base.y + dy, base.y + base.height/2 + dy, base.y + base.height + dy];
+  const bx = snapOn ? bestSnap(mx, targets.xs, tol) : null;
+  const by = snapOn ? bestSnap(my, targets.ys, tol) : null;
+  const marks = {x: null, y: null};
+
+  if(bx){ dx += bx.d; marks.x = bx.at; }
+  if(by){ dy += by.d; marks.y = by.at; }
+
+  // 元素没吸上的轴，退而吸网格（吸网格不画参考线，避免画面太吵）
+  if(gridOn && snapOn && gridStep > 0){
+    const gt = pxToUser(SNAP_PX * 0.7);
+    if(!bx){
+      const v = base.x + dx, g = Math.round(v / gridStep) * gridStep;
+      if(Math.abs(g - v) <= gt) dx += g - v;
+    }
+    if(!by){
+      const v = base.y + dy, g = Math.round(v / gridStep) * gridStep;
+      if(Math.abs(g - v) <= gt) dy += g - v;
+    }
+  }
+  return {dx, dy, marks};
+}
+function drawGuides(gx, gy){
+  const s = svgEl();
+  if(!s) return;
+  let g = s.querySelector('#ff-guides');
+  if(!g){
+    g = document.createElementNS(NS, 'g');
+    g.setAttribute('id','ff-guides');
+    g.setAttribute('pointer-events','none');
+    s.appendChild(g);
+  }
+  const vb = s.viewBox.baseVal;
+  const W = vb && vb.width ? vb.width : 1000;
+  const H = vb && vb.height ? vb.height : 1000;
+  g.innerHTML = '';
+  const sw = Math.max(0.5, W / 1500);
+  const mk = (x1,y1,x2,y2)=>{
+    const l = document.createElementNS(NS, 'line');
+    l.setAttribute('x1',x1); l.setAttribute('y1',y1);
+    l.setAttribute('x2',x2); l.setAttribute('y2',y2);
+    l.setAttribute('stroke','#d93a3a');
+    l.setAttribute('stroke-width', sw);
+    g.appendChild(l);
+  };
+  if(gx !== null && gx !== undefined) mk(gx, 0, gx, H);
+  if(gy !== null && gy !== undefined) mk(0, gy, W, gy);
+}
+function clearGuides(){
+  const s = svgEl();
+  const g = s && s.querySelector('#ff-guides');
+  if(g) g.innerHTML = '';
+}
+
+/* ---------- 缩放 ---------- */
+function baseWidth(){
+  // 画板的「100%」宽度：可用宽度与 1180 取小
+  return Math.max(200, Math.min(stage.clientWidth - 44, 1180));
+}
+function applyZoom(){
+  const s = svgEl();
+  if(!s) return;
+  // 缩放必须改画板本身的宽度，而不是只改里面 SVG 的百分比。
+  // 只改 SVG 百分比的话，画板仍占满整行，缩小后右侧留一大片空白，
+  // 看起来就像「图跑到左边去了」。
+  const w = baseWidth() * zoom;
+  canvas.style.width = w + 'px';
+  canvas.style.maxWidth = 'none';
+  s.style.width = '100%';
+  document.getElementById('zoomv').textContent = Math.round(zoom * 100) + '%';
+}
+function setZoom(z){
+  zoom = Math.min(4, Math.max(0.4, z));
+  applyZoom();
+}
+
+/* ---------- 预览：直接改属性，不用 CSS transform ----------
+   CSS 的 transform 会整个替换元素自带的 transform 属性，
+   拖动一个已经被移动过（带 translate）或旋转过的元素时，
+   按下瞬间它会跳回原位，松手才跳回来。直接改属性没这个问题。 */
+function snapAttrs(el){
+  const o = {};
+  ['x','y','cx','cy','transform'].forEach(k=>{ o[k] = el.getAttribute(k); });
+  return o;
+}
+function restoreAttrs(el, o){
+  Object.keys(o).forEach(k=>{
+    if(o[k] === null) el.removeAttribute(k); else el.setAttribute(k, o[k]);
+  });
+}
+function previewShift(el, o, dx, dy){
+  restoreAttrs(el, o);
+  const num = v => parseFloat(v) || 0;
+  if(!o.transform && o.x !== null && o.y !== null){
+    el.setAttribute('x', (num(o.x) + dx).toFixed(3));
+    el.setAttribute('y', (num(o.y) + dy).toFixed(3));
+  }else if(!o.transform && o.cx !== null && o.cy !== null){
+    el.setAttribute('cx', (num(o.cx) + dx).toFixed(3));
+    el.setAttribute('cy', (num(o.cy) + dy).toFixed(3));
+  }else{
+    const base = o.transform || '';
+    el.setAttribute('transform',
+      ('translate(' + dx + ',' + dy + ') ' + base).trim());
+  }
+}
+
+/* ---------- 拖动 ---------- */
+function select(el){
+  canvas.querySelectorAll('.ff-sel').forEach(e=>e.classList.remove('ff-sel'));
+  sel = el;
+  selId = el ? el.dataset.ffid : null;
+  if(el) el.classList.add('ff-sel');
+  document.getElementById('st-id').textContent = selId || '—';
+  showProps(el);
+}
+
+/* ---------- 属性面板 ---------- */
+function isText(el){ return el.tagName.toLowerCase() === 'text'; }
+
+function visualBox(el){
+  const s = svgEl();
+  const cr = el.getBoundingClientRect();
+  const m = s.getScreenCTM().inverse();
+  const a = new DOMPoint(cr.left, cr.top).matrixTransform(m);
+  const b = new DOMPoint(cr.right, cr.bottom).matrixTransform(m);
+  return {x:a.x, y:a.y, w:b.x - a.x, h:b.y - a.y};
+}
+
+function drawHandle(el){
+  const s = svgEl();
+  if(!s) return;
+  let g = s.querySelector('#ff-handle');
+  if(!g){
+    g = document.createElementNS(NS, 'g');
+    g.setAttribute('id','ff-handle');
+    s.appendChild(g);
+  }
+  while(g.firstChild) g.removeChild(g.firstChild);
+  if(!el) return;
+  // 只有能改宽高的元素才给手柄：path/line/polyline/g 写 width/height
+  // 是无意义属性，会永久留在文件里
+  if(!isText(el) && el.getAttribute('width') === null
+     && el.getAttribute('height') === null) return;
+  const vb = s.viewBox.baseVal;
+  const size = Math.max(5, (vb && vb.width ? vb.width : 800) / 110);
+  const bx = visualBox(el);
+  const r = document.createElementNS(NS, 'rect');
+  r.setAttribute('x', bx.x + bx.w - size / 2);
+  r.setAttribute('y', bx.y + bx.h - size / 2);
+  r.setAttribute('width', size);
+  r.setAttribute('height', size);
+  r.setAttribute('fill', '#ffffff');
+  r.setAttribute('stroke', '#1a63c8');
+  r.setAttribute('stroke-width', size / 9);
+  r.setAttribute('data-ffhandle', '1');
+  r.style.cursor = 'nwse-resize';
+  r.style.pointerEvents = 'all';
+  g.appendChild(r);
+}
+
+function showProps(el){
+  const box = document.getElementById('props');
+  if(!el){ box.style.display = 'none'; return; }
+  box.style.display = '';
+  document.getElementById('p-id').textContent = el.dataset.ffid || '—';
+  // 只显示 text:4 这种编号，点违例自动选中后根本不知道选中的是哪段字。
+  // 补一段内容摘要，矩形之类没有文字的就留空。
+  const hint = document.getElementById('p-hint');
+  if(isText(el)){
+    const txt = (el.textContent || '').replace(/\s+/g, ' ').trim();
+    hint.textContent = txt.length > 12 ? '「' + txt.slice(0, 12) + '…」' : '「' + txt + '」';
+    hint.title = txt;
+  } else {
+    hint.textContent = '';
+    hint.title = '';
+  }
+  const t = isText(el);
+  // 有没有真的宽高属性。path/line/g 上没有，给它们显示"宽高"输入框，
+  // 改完会在文件里永久留下无意义的 width/height。
+  const hasBox = el.getAttribute('width') !== null || el.getAttribute('height') !== null;
+
+  // 按元素类型只显示有意义的字段：矩形上摆一个禁用的"字号"框只是噪声
+  document.getElementById('rows-text').style.display = t ? '' : 'none';
+  document.getElementById('rows-box').style.display = (!t && hasBox) ? '' : 'none';
+  document.getElementById('row-nosize').style.display = (!t && !hasBox) ? '' : 'none';
+  document.getElementById('row-text').style.display = t ? '' : 'none';
+  // 背景板是锁定的，不该参与图层调整
+  document.getElementById('row-order').style.display =
+    el.hasAttribute('data-fflock') ? 'none' : '';
+
+  if(t){
+    const cs = getComputedStyle(el);
+    document.getElementById('p-fs').value = (parseFloat(cs.fontSize) || 0).toFixed(1);
+    const anchor = cs.textAnchor || 'start';
+    document.querySelectorAll('#row-text [data-anchor]').forEach(b=>{
+      b.classList.toggle('on', b.dataset.anchor === anchor);
+    });
+  } else if(hasBox){
+    let b; try{ b = el.getBBox(); }catch(_){ b = {width: 0, height: 0}; }
+    document.getElementById('p-w').value =
+      (parseFloat(el.getAttribute('width')) || b.width).toFixed(1);
+    document.getElementById('p-h').value =
+      (parseFloat(el.getAttribute('height')) || b.height).toFixed(1);
+  }
+  drawHandle(el);
+}
+
+function commitOrder(id, mode){ return queue(()=>doCommitOrder(id, mode)); }
+async function doCommitOrder(id, mode){
+  try{
+    const r = await fetch('/order', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({id: id, mode: mode})
+    });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.error || '图层调整失败');
+    // 重排会改变全图编号，不跟着换 selId 的话刷新后会选中另一个元素
+    if(j.eid){ selId = j.eid; }
+    await refresh();
+    toast(id + '  图层 ' + (MODELABEL[mode] || mode));
+  }catch(err){
+    toast(err.message);
+    await refresh();
+  }
+}
+
+function redo(){ return queue(doRedo); }
+async function doRedo(){
+  try{
+    const r = await fetch('/redo', {method:'POST'});
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.error || '没有可重做的改动');
+    await refresh();
+    toast('重做 ' + (j.op ? j.op.id : ''));
+  }catch(err){
+    toast(err.message);
+  }
+}
+
+function commitSet(id, attrs){ return queue(()=>doCommitSet(id, attrs)); }
+async function doCommitSet(id, attrs){
+  try{
+    const r = await fetch('/set', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({id: id, attrs: attrs})
+    });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.error || '保存失败');
+    await refresh();
+    const k = Object.keys(attrs)[0];
+    toast(id + '  ' + k + ' = ' + attrs[k]);
+  }catch(err){
+    toast('失败 ' + err.message);
+    await refresh();
+  }
+}
+
+canvas.addEventListener('mousedown', e=>{
+  // 缩放手柄不是可拖元素，它的 mousedown 归后面那个监听处理。
+  // 这里不跳过的话会先执行 select(null) 把选中清掉，
+  // 缩放的监听紧接着因 `if(!sel) return` 直接返回——拖角就彻底失效了。
+  if(e.target.hasAttribute && e.target.hasAttribute('data-ffhandle')) return;
+  const el = e.target.closest('[data-ffid]');
+  // 点空白或背景板 = 取消选中。没有这一步，选中状态会一直粘着上一个元素，
+  // 属性面板停在旧对象上，很容易改错东西。
+  if(!el || el.hasAttribute('data-fflock')){ select(null); return; }
+  e.preventDefault();
+  select(el);
+  const p0 = toUser(e);
+  // 吸附基准用根坐标系的 AABB，和 toUser 算出的 dx 在同一空间
+  let base = {x:0, y:0, width:0, height:0};
+  try{ base = visualBox(el); }catch(_){}
+  dragging = {el, p0, base, dx:0, dy:0, snap: snapAttrs(el),
+              targets: collectTargets(el),
+              tol: pxToUser(SNAP_PX)};
+});
+
+window.addEventListener('mousemove', e=>{
+  if(!dragging) return;
+  const p = toUser(e);
+  const r = snapAll(dragging.base, dragging.targets,
+                    p.x - dragging.p0.x, p.y - dragging.p0.y, dragging.tol);
+  drawGuides(r.marks.x, r.marks.y);
+  const tag = (r.marks.x !== null ? 'x' : '') + (r.marks.y !== null ? 'y' : '');
+  setSnap(tag || '—');
+
+  dragging.dx = r.dx;
+  dragging.dy = r.dy;
+  previewShift(dragging.el, dragging.snap, r.dx, r.dy);
+  setHud(r.dx, r.dy);
+  const b = dragging.base;
+  document.getElementById('st-pos').textContent =
+    'x ' + (b.x + r.dx).toFixed(1) + '  y ' + (b.y + r.dy).toFixed(1);
+});
+
+canvas.addEventListener('mousedown', function(e){
+  if(!e.target.hasAttribute || !e.target.hasAttribute('data-ffhandle')) return;
+  if(!sel) return;
+  e.preventDefault();
+  const b = sel.getBBox();
+  resizing = {el: sel, p0: toUser(e), w0: b.width, h0: b.height,
+              fs0: parseFloat(getComputedStyle(sel).fontSize) || 12,
+              text: isText(sel), moved: false, pending: null};
+});
+
+window.addEventListener('mousemove', function(e){
+  if(!resizing) return;
+  const p = toUser(e);
+  const dx = p.x - resizing.p0.x, dy = p.y - resizing.p0.y;
+  resizing.moved = true;
+  if(resizing.text){
+    // 文字：拖右加大字号，按原宽度等比换算，避免一点点拖就跳很大
+    const fs = Math.max(1, resizing.fs0 * (1 + dx / Math.max(resizing.w0, 1)));
+    resizing.el.setAttribute('font-size', fs.toFixed(1));
+    resizing.pending = {'font-size': +fs.toFixed(1)};
+  }else{
+    const w = Math.max(2, resizing.w0 + dx);
+    const h = Math.max(2, resizing.h0 + dy);
+    resizing.el.setAttribute('width', w.toFixed(1));
+    resizing.el.setAttribute('height', h.toFixed(1));
+    resizing.pending = {'width': +w.toFixed(1), 'height': +h.toFixed(1)};
+  }
+  showProps(resizing.el);
+});
+
+window.addEventListener('mouseup', async ()=>{
+  if(resizing){
+    const r = resizing;
+    resizing = null;
+    if(r.moved && r.pending) await commitSet(r.el.dataset.ffid, r.pending);
+    return;
+  }
+  if(!dragging) return;
+  const {el, dx, dy, snap} = dragging;
+  dragging = null;
+  restoreAttrs(el, snap);
+  clearGuides();
+  setSnap('—');
+  if(Math.abs(dx) < 0.15 && Math.abs(dy) < 0.15){ setHud(0,0); return; }
+  await commit(el.dataset.ffid, dx, dy);
+});
+
+window.addEventListener('keydown', async e=>{
+  if(e.ctrlKey && e.key.toLowerCase() === 'z'){
+    e.preventDefault();
+    if(e.shiftKey) await redo(); else await undo();
+    return;
+  }
+  if(e.ctrlKey && e.key.toLowerCase() === 'y'){ e.preventDefault(); await redo(); return; }
+  if(e.target.tagName === 'INPUT') return;
+  if(e.key === 'g' || e.key === 'G'){ toggleGrid(); return; }
+  if(e.key === 's' || e.key === 'S'){ toggleSnap(); return; }
+  if(e.key === 't' || e.key === 'T'){ toggleTheme(); return; }
+  if(sel && isText(sel) && (e.key === '[' || e.key === ']')){
+    e.preventDefault();
+    const cur = parseFloat(getComputedStyle(sel).fontSize) || 12;
+    const next = Math.max(1, +(cur + (e.key === ']' ? 0.5 : -0.5)).toFixed(1));
+    commitSet(sel.dataset.ffid, {'font-size': next});
+    return;
+  }
+  if(!sel || ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].indexOf(e.key) < 0) return;
+  e.preventDefault();
+  const step = e.shiftKey ? 0.2 : 1.0;
+  const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
+  const dy = e.key === 'ArrowUp'   ? -step : e.key === 'ArrowDown'  ? step : 0;
+  setHud(dx, dy);
+  await commit(sel.dataset.ffid, dx, dy);
+});
+
+window.addEventListener('resize', function(){ applyZoom(); });
+
+stage.addEventListener('wheel', e=>{
+  if(!e.ctrlKey) return;
+  e.preventDefault();
+  setZoom(zoom * (e.deltaY > 0 ? 0.9 : 1.1));
+}, {passive:false});
+
+function commit(ffid, dx, dy){ return queue(()=>doCommit(ffid, dx, dy)); }
+async function doCommit(ffid, dx, dy){
+  const keep = stage.scrollTop;
+  try{
+    const r = await fetch('/apply', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({id: ffid, dx, dy})
+    });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.error || '保存失败');
+    await refresh();
+    stage.scrollTop = keep;
+    toast(ffid + '  dx ' + fmt(dx*state.unit_mm) + '  dy ' + fmt(dy*state.unit_mm));
+  }catch(err){
+    toast('失败 ' + err.message);
+    await refresh();
+  }
+  setHud(0,0);
+}
+
+function undo(){ return queue(doUndo); }
+async function doUndo(){
+  try{
+    const r = await fetch('/undo', {method:'POST'});
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.error || '无可撤销');
+    await refresh();
+    toast('撤销 ' + (j.op ? j.op.id : ''));
+  }catch(err){
+    toast(err.message);
+  }
+}
+
+function toggleGrid(){
+  gridOn = !gridOn;
+  document.getElementById('t-grid').classList.toggle('on', gridOn);
+  drawGrid();
+}
+function toggleSnap(){
+  snapOn = !snapOn;
+  document.getElementById('t-snap').classList.toggle('on', snapOn);
+}
+
+async function refresh(){
+  const both = await Promise.all([
+    fetch('/fig.svg').then(r=>r.text()),
+    fetch('/state').then(r=>r.json())
+  ]);
+  canvas.innerHTML = both[0];
+  state = both[1];
+  state.unit_mm = state.unit_mm || UNIT_MM;
+  applyZoom();
+  drawGrid();
+  renderViolations();
+  renderOps();
+  // 完整路径能长到几百像素，顶栏放不下也没人看；只留末两级，全路径进 title
+  const parts = String(state.file || '').split(/[\\/]+/).filter(Boolean);
+  const tEl = document.getElementById('title');
+  tEl.textContent = parts.length > 2 ? '…/' + parts.slice(-2).join('/')
+                                     : (parts.join('/') || '—');
+  tEl.title = state.file || '';
+  if(selId){
+    const el = canvas.querySelector('[data-ffid="' + CSS.escape(selId) + '"]');
+    if(el){
+      sel = el; selId = el.dataset.ffid;
+      el.classList.add('ff-sel');
+      // 恢复选中走的是另一条路径，绕过了 select()，状态栏得在这里同步，
+      // 否则明明选中了元素，底栏还显示"元素 —"。
+      document.getElementById('st-id').textContent = selId;
+      showProps(el);
+    } else { sel = null; selId = null; showProps(null); }
+  }
+}
+
+// 检查代码是给 agent 和 CI 看的，人看的是中文类别。
+// 英文 code 放进 title，鼠标停上去还能查到原始标识。
+const VLABEL = {
+  text_overlap: '文字重叠',
+  text_occluded: '文字被遮挡',
+  text_out_of_canvas: '超出画布',
+  arrow_dangling: '箭头悬空',
+  label_offcenter: '标签偏心'
+};
+
+function renderViolations(){
+  const ul = document.getElementById('viol');
+  ul.innerHTML = '';
+  document.getElementById('vcnt').textContent = state.violations.length;
+  if(!state.violations.length){
+    ul.innerHTML = '<li class="empty">无违例</li>';
+    return;
+  }
+  state.violations.forEach(v=>{
+    const label = VLABEL[v.code] || v.code;
+    let text = v.msg || '';
+    // msg 往往已以中文类别开头（"文字重叠 1.8×0.6mm…"），
+    // 不去掉的话同一句话会上下各出现一次。
+    if(text.indexOf(label) === 0) text = text.slice(label.length).trim();
+
+    const li = document.createElement('li');
+    li.className = v.severity === 'error' ? 'err' : 'warn';
+    li.title = v.code + (v.eids && v.eids.length ? '\n' + v.eids.join('\n') : '');
+
+    const sev = document.createElement('div'); sev.className = 'sev';
+    const body = document.createElement('div'); body.className = 'body';
+    const cat = document.createElement('div'); cat.className = 'cat';
+    // 只靠颜色区分"错误/建议"对色弱不友好，补一个文字标记
+    cat.textContent = label + (v.severity === 'warn' ? ' · 建议' : '');
+    const msg = document.createElement('div'); msg.className = 'msg';
+    msg.textContent = text;           // 文字来自 SVG，不能当 HTML 解析
+    body.appendChild(cat); body.appendChild(msg);
+    li.appendChild(sev); li.appendChild(body);
+    li.onclick = function(){ flash(v.ffids); };
+    ul.appendChild(li);
+  });
+}
+
+function flash(ffids){
+  canvas.querySelectorAll('.ff-hit').forEach(e=>e.classList.remove('ff-hit'));
+  let picked = null;
+  (ffids||[]).forEach(id=>{
+    const el = canvas.querySelector('[data-ffid="' + CSS.escape(id) + '"]');
+    if(!el) return;
+    el.classList.add('ff-hit');
+    el.scrollIntoView({block:'center', behavior:'smooth'});
+    setTimeout(()=>el.classList.remove('ff-hit'), 2400);
+    if(!picked && !el.hasAttribute('data-fflock')) picked = el;
+  });
+  // 顺手选中：点一条违例就该能直接改它，不必再去图里找一遍同一个元素
+  if(picked) select(picked);
+}
+
+const ATTRLABEL = {
+  'font-size': '字号', 'font-family': '字体', 'font-weight': '字重',
+  'text-anchor': '对齐', 'fill': '颜色', 'width': '宽', 'height': '高'
+};
+const MODELABEL = {front: '置顶', back: '置底', forward: '上移', backward: '下移'};
+
+function renderOps(){
+  const box = document.getElementById('ops');
+  box.innerHTML = '';
+  document.getElementById('ocnt').textContent = state.ops.length;
+  if(!state.ops.length){
+    const d = document.createElement('div');
+    d.className = 'empty';
+    d.textContent = '还没有改动。拖动、改属性或调图层后会记在这里，随时可撤销。';
+    box.appendChild(d);
+    return;
+  }
+  // 最新的在最上面：面板高度有限，刚做完的那一步不用滚就能看到
+  state.ops.slice().reverse().forEach(o=>{
+    const row = document.createElement('div');
+    row.className = 'op';
+    const id = document.createElement('span');
+    id.className = 'id';
+    // 图层操作会改变编号，显示操作后的新编号才对得上文件现状
+    id.textContent = (o.op === 'order' && o.eid_after) ? o.eid_after : (o.id || '?');
+    const v = document.createElement('span');
+    v.className = 'v';
+
+    if(o.op === 'order'){
+      v.textContent = '图层 ' + (MODELABEL[o.mode] || ('第 ' + o.to + ' 层'));
+    } else if(o.op === 'set'){
+      const to = o.to || {};
+      v.textContent = Object.keys(to).map(k=>{
+        const val = to[k];
+        return (ATTRLABEL[k] || k) + ' ' + (val === null || val === '' ? '默认' : val);
+      }).join('  ') || '—';
+    } else {
+      const k = state.unit_mm || UNIT_MM;
+      v.textContent = 'Δ ' + fmt((o.dx || 0) * k) + ', ' + fmt((o.dy || 0) * k) + ' mm';
+    }
+    row.appendChild(id); row.appendChild(v);
+    row.title = JSON.stringify(o);
+    // order 会改变文档顺序，元素编号跟着变，点了可能指错，所以只对 move/set 定位
+    if(o.op !== 'order') row.onclick = function(){ flash([o.id]); };
+    box.appendChild(row);
+  });
+}
+
+function bindNum(id, attr){
+  document.getElementById(id).onchange = function(e){
+    if(!sel) return;
+    const v = parseFloat(e.target.value);
+    if(!isFinite(v) || v <= 0){ showProps(sel); return; }
+    const a = {}; a[attr] = v;
+    commitSet(sel.dataset.ffid, a);
+  };
+}
+document.querySelectorAll('#row-text [data-anchor]').forEach(b=>{
+  b.onclick = function(){
+    if(sel) commitSet(sel.dataset.ffid, {'text-anchor': b.dataset.anchor});
+  };
+});
+document.querySelectorAll('#row-order [data-order]').forEach(b=>{
+  b.onclick = function(){
+    if(sel) commitOrder(sel.dataset.ffid, b.dataset.order);
+  };
+});
+bindNum('p-fs', 'font-size');
+bindNum('p-w', 'width');
+bindNum('p-h', 'height');
+
+document.getElementById('zoom-in').onclick  = function(){ setZoom(zoom * 1.2); };
+document.getElementById('zoom-out').onclick = function(){ setZoom(zoom / 1.2); };
+document.getElementById('zoom-fit').onclick = function(){ setZoom(1); };
+document.getElementById('undo').onclick     = undo;
+document.getElementById('redo').onclick     = redo;
+document.getElementById('t-grid').onclick   = toggleGrid;
+document.getElementById('t-snap').onclick   = toggleSnap;
+// 主题只有两个状态，用分段控件表示：高亮 = 当前是哪个，不再用「点击后去哪」当标签。
+// 反相只对暗色有意义（亮色下把白底反成黑底，那本来就是暗色主题干的事），
+// 所以亮色时禁用，而不是让它变成一个亮着却不起作用的按钮。
+function applyTheme(t, persist){
+  const dark = (t === 'dark');
+  document.documentElement.setAttribute('data-theme', t);
+  document.getElementById('t-light').classList.toggle('on', !dark);
+  document.getElementById('t-dark').classList.toggle('on', dark);
+  const inv = document.getElementById('t-invert');
+  inv.disabled = !dark;
+  inv.classList.toggle('on', dark && invert);
+  document.documentElement.classList.toggle('invert', dark && invert);
+  if(svgEl()) drawGrid();
+  if(persist){ try{ localStorage.setItem('layoutfix.theme', t); }catch(_){} }
+}
+function toggleTheme(){
+  const cur = document.documentElement.getAttribute('data-theme') || 'light';
+  applyTheme(cur === 'dark' ? 'light' : 'dark', true);
+}
+document.getElementById('t-light').onclick = function(){ applyTheme('light', true); };
+document.getElementById('t-dark').onclick  = function(){ applyTheme('dark', true); };
+document.getElementById('t-invert').onclick = function(){
+  const t = document.documentElement.getAttribute('data-theme') || 'light';
+  if(t !== 'dark') return;          // 亮色下不可用，避免「点了没反应」的潜伏状态
+  invert = !invert;
+  applyTheme(t, true);
+};
+
+document.getElementById('grid-step').onchange = function(e){
+  const v = parseFloat(e.target.value);
+  if(v > 0){ gridStep = v; drawGrid(); }
+  else e.target.value = gridStep;
+};
+
+try{
+  applyTheme(localStorage.getItem('layoutfix.theme') ||
+             (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'),
+             false);   // 首次跟随系统偏好，不要立刻写死，否则以后不再跟系统
+}catch(_){ applyTheme('light', false); }
+
+try{
+  const q = new URLSearchParams(location.search);
+  const qz = parseFloat(q.get('z'));
+  if(isFinite(qz) && qz > 0) zoom = Math.min(4, Math.max(0.2, qz));
+  // ?sel=text:4 打开即选中该元素。agent 报违例时可以直接给出可点的链接，
+  // 人点开就停在出问题的那个元素上，不用在图里找。
+  const qs = q.get('sel');
+  if(qs) selId = qs;
+}catch(_){}
+
+refresh().then(function(){
+  gridStep = autoGridStep();
+  document.getElementById('grid-step').value = gridStep;
+  drawGrid();
+});
+</script>
+</body>
+</html>
