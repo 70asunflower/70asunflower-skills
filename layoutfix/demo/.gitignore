@@ -2,3 +2,5 @@ work*
 *.png
 *.bak 
 *.nudge.jsonl
+demo.svg
+demo.svg.*
