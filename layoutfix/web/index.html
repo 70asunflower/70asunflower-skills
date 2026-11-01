@@ -145,6 +145,13 @@
     background:var(--field); color:var(--ink); border:1px solid var(--line2);
     border-radius:3px; padding:2px 4px; text-align:right;
   }
+  #props textarea{
+    width:100%; min-height:46px; resize:vertical;
+    font:11px/1.6 "Segoe UI","Noto Sans SC","Microsoft YaHei UI",sans-serif;
+    background:var(--field); color:var(--ink);
+    border:1px solid var(--line2); border-radius:3px; padding:3px 5px;
+  }
+  #props textarea:focus{outline:1px solid var(--sel)}
   #props .btnrow{display:flex; align-items:center; gap:3px;
                  padding:0 10px 8px; flex-wrap:wrap}
   #props .btnrow .lbl{color:var(--mute); margin-right:2px}
@@ -250,12 +257,16 @@
     <div class="rows" id="rows-text">
       <label>字号</label><input id="p-fs" class="num" type="number" step="0.5">
     </div>
+    <div class="rows" id="rows-content" style="grid-template-columns:1fr">
+      <textarea id="p-text" rows="2" spellcheck="false"
+                placeholder="文字内容；回车分行（自动转 tspan 多行），Ctrl+Enter 保存"></textarea>
+    </div>
     <div class="rows" id="rows-box">
       <label>宽</label><input id="p-w" class="num" type="number" step="1">
       <label>高</label><input id="p-h" class="num" type="number" step="1">
     </div>
     <div class="btnrow" id="row-nosize" style="display:none">
-      <span class="lbl">该元素没有宽高属性，只能调图层</span>
+      <span class="lbl" id="nosize-lbl">该元素没有宽高属性，只能调图层</span>
     </div>
     <div class="btnrow" id="row-text">
       <span class="lbl">对齐</span>
@@ -580,12 +591,41 @@ function drawHandle(el){
   }
   while(g.firstChild) g.removeChild(g.firstChild);
   if(!el) return;
+  const vb = s.viewBox.baseVal;
+  const size = Math.max(5, (vb && vb.width ? vb.width : 800) / 110);
+  // 线段给两个端点手柄：箭头接没接上，拖端点最直观。
+  // 端点坐标要经 CTM 投到根坐标系——线躺在带 transform 的 <g> 里时，
+  // 局部 x1/y1 和根坐标不是一回事。自带 transform 的线先不给手柄
+  // （局部坐标写回需要逆变换，见 README 已知边界）。
+  if(el.tagName.toLowerCase() === 'line'
+     && el.getAttribute('transform') === null
+     && el.getAttribute('x1') !== null){
+    const toRoot = (x, y)=>{
+      const q = new DOMPoint(x, y).matrixTransform(el.getScreenCTM())
+                  .matrixTransform(s.getScreenCTM().inverse());
+      return [q.x, q.y];
+    };
+    [[el.getAttribute('x1'), el.getAttribute('y1'), '1'],
+     [el.getAttribute('x2'), el.getAttribute('y2'), '2']].forEach(function(p){
+      const q = toRoot(parseFloat(p[0]) || 0, parseFloat(p[1]) || 0);
+      const c = document.createElementNS(NS, 'circle');
+      c.setAttribute('cx', q[0].toFixed(2));
+      c.setAttribute('cy', q[1].toFixed(2));
+      c.setAttribute('r', size * 0.6);
+      c.setAttribute('fill', '#ffffff');
+      c.setAttribute('stroke', '#1a63c8');
+      c.setAttribute('stroke-width', Math.max(1, size / 8));
+      c.setAttribute('data-ffend', p[2]);
+      c.style.cursor = 'move';
+      c.style.pointerEvents = 'all';
+      g.appendChild(c);
+    });
+    return;
+  }
   // 只有能改宽高的元素才给手柄：path/line/polyline/g 写 width/height
   // 是无意义属性，会永久留在文件里
   if(!isText(el) && el.getAttribute('width') === null
      && el.getAttribute('height') === null) return;
-  const vb = s.viewBox.baseVal;
-  const size = Math.max(5, (vb && vb.width ? vb.width : 800) / 110);
   const bx = visualBox(el);
   const r = document.createElementNS(NS, 'rect');
   r.setAttribute('x', bx.x + bx.w - size / 2);
@@ -621,12 +661,24 @@ function showProps(el){
   // 有没有真的宽高属性。path/line/g 上没有，给它们显示"宽高"输入框，
   // 改完会在文件里永久留下无意义的 width/height。
   const hasBox = el.getAttribute('width') !== null || el.getAttribute('height') !== null;
+  const isLine = el.tagName.toLowerCase() === 'line';
 
   // 按元素类型只显示有意义的字段：矩形上摆一个禁用的"字号"框只是噪声
   document.getElementById('rows-text').style.display = t ? '' : 'none';
+  document.getElementById('rows-content').style.display = t ? '' : 'none';
   document.getElementById('rows-box').style.display = (!t && hasBox) ? '' : 'none';
   document.getElementById('row-nosize').style.display = (!t && !hasBox) ? '' : 'none';
+  document.getElementById('nosize-lbl').textContent = isLine
+    ? '线段：拖两个端点圆点改接线，端点会自动吸到框上'
+    : '该元素没有宽高属性，只能调图层';
   document.getElementById('row-text').style.display = t ? '' : 'none';
+  if(t){
+    // 多行文字存在 tspan 里，编辑框按 \n 拼回；单行直接是 textContent
+    const spans = el.querySelectorAll('tspan');
+    document.getElementById('p-text').value = spans.length
+      ? Array.from(spans).map(x=>x.textContent).join('\n')
+      : (el.textContent || '');
+  }
   // 背景板是锁定的，不该参与图层调整
   document.getElementById('row-order').style.display =
     el.hasAttribute('data-fflock') ? 'none' : '';
@@ -720,18 +772,54 @@ canvas.addEventListener('mousedown', e=>{
               tol: pxToUser(SNAP_PX)};
 });
 
+/* 连接线（line/polyline）的吸附对象是两个端点，不是包围盒：
+   人拖箭头时心里想的是「把这个头按到那个框上」。
+   端点先经 CTM 投到根坐标，带 transform 的线也一样正确。 */
+function connectorEnds(el){
+  const tag = el.tagName.toLowerCase();
+  if(tag === 'line'){
+    return [[parseFloat(el.getAttribute('x1')) || 0, parseFloat(el.getAttribute('y1')) || 0],
+            [parseFloat(el.getAttribute('x2')) || 0, parseFloat(el.getAttribute('y2')) || 0]];
+  }
+  if(tag === 'polyline'){
+    const pts = (el.getAttribute('points') || '').trim().split(/[\s,]+/);
+    if(pts.length >= 4){
+      return [[parseFloat(pts[0]), parseFloat(pts[1])],
+              [parseFloat(pts[pts.length - 2]), parseFloat(pts[pts.length - 1])]];
+    }
+  }
+  return null;
+}
+
 window.addEventListener('mousemove', e=>{
   if(!dragging) return;
   const p = toUser(e);
-  const r = snapAll(dragging.base, dragging.targets,
-                    p.x - dragging.p0.x, p.y - dragging.p0.y, dragging.tol);
+  const rawDx = p.x - dragging.p0.x, rawDy = p.y - dragging.p0.y;
+  const ends = connectorEnds(dragging.el);
+  let r;
+  if(ends){
+    // 先按原始位移预览一次，端点坐标才反映移动后的位置
+    previewShift(dragging.el, dragging.snap, rawDx, rawDy);
+    const m = dragging.el.getScreenCTM();
+    const cx = [], cy = [];
+    ends.forEach(function(pt){
+      const q = new DOMPoint(pt[0], pt[1]).matrixTransform(m);
+      cx.push(q.x); cy.push(q.y);
+    });
+    const bx = snapOn ? bestSnap(cx, dragging.targets.xs, dragging.tol) : null;
+    const by = snapOn ? bestSnap(cy, dragging.targets.ys, dragging.tol) : null;
+    r = {dx: rawDx + (bx ? bx.d : 0), dy: rawDy + (by ? by.d : 0),
+         marks: {x: bx ? bx.at : null, y: by ? by.at : null}};
+  }else{
+    r = snapAll(dragging.base, dragging.targets, rawDx, rawDy, dragging.tol);
+  }
+  previewShift(dragging.el, dragging.snap, r.dx, r.dy);
   drawGuides(r.marks.x, r.marks.y);
   const tag = (r.marks.x !== null ? 'x' : '') + (r.marks.y !== null ? 'y' : '');
   setSnap(tag || '—');
 
   dragging.dx = r.dx;
   dragging.dy = r.dy;
-  previewShift(dragging.el, dragging.snap, r.dx, r.dy);
   setHud(r.dx, r.dy);
   const b = dragging.base;
   document.getElementById('st-pos').textContent =
@@ -769,8 +857,66 @@ window.addEventListener('mousemove', function(e){
   showProps(resizing.el);
 });
 
+/* ---------- 端点拖动：把悬空的箭头端按到框上 ---------- */
+let endDrag = null;
+canvas.addEventListener('mousedown', function(e){
+  if(!e.target.hasAttribute || !e.target.hasAttribute('data-ffend')) return;
+  if(!sel) return;
+  e.preventDefault();
+  cancelNudge(false);
+  document.body.classList.add('grabbing');
+  const key = e.target.getAttribute('data-ffend') === '1' ? ['x1', 'y1'] : ['x2', 'y2'];
+  endDrag = {el: sel, key: key,
+             orig: {x: sel.getAttribute(key[0]), y: sel.getAttribute(key[1])},
+             targets: collectTargets(sel), tol: pxToUser(SNAP_PX), cur: null};
+});
+
+window.addEventListener('mousemove', function(e){
+  if(!endDrag) return;
+  const el = endDrag.el;
+  // 光标要换成线的局部坐标再写 x1/y1：端点手柄画在根坐标系里，
+  // 直接把根坐标写进局部属性，线在带变换的组里就会跳走
+  const q = new DOMPoint(e.clientX, e.clientY)
+      .matrixTransform(el.getScreenCTM().inverse());
+  const snapAxis = (v, targets)=>{
+    const hit = snapOn ? bestSnap([v], targets, endDrag.tol) : null;
+    return hit ? {v: v + hit.d, at: hit.at} : {v: v, at: null};
+  };
+  const sx = snapAxis(q.x, endDrag.targets.xs);
+  const sy = snapAxis(q.y, endDrag.targets.ys);
+  el.setAttribute(endDrag.key[0], sx.v.toFixed(2));
+  el.setAttribute(endDrag.key[1], sy.v.toFixed(2));
+  drawGuides(sx.at, sy.at);
+  setSnap((sx.at ? 'x' : '') + (sy.at ? 'y' : '') || '—');
+  setHud(sx.v - (parseFloat(endDrag.orig.x) || 0),
+         sy.v - (parseFloat(endDrag.orig.y) || 0));
+  endDrag.cur = {x: sx.v, y: sy.v};
+});
+
 window.addEventListener('mouseup', async ()=>{
   document.body.classList.remove('grabbing');
+  if(endDrag){
+    const d = endDrag; endDrag = null;
+    clearGuides(); setSnap('—');
+    if(!d.cur){
+      d.el.setAttribute(d.key[0], d.orig.x);
+      d.el.setAttribute(d.key[1], d.orig.y);
+      setHud(0,0);
+      return;
+    }
+    const attrs = {};
+    attrs[d.key[0]] = +d.cur.x.toFixed(2);
+    attrs[d.key[1]] = +d.cur.y.toFixed(2);
+    if(Math.abs(d.cur.x - (parseFloat(d.orig.x) || 0)) > 0.01
+       || Math.abs(d.cur.y - (parseFloat(d.orig.y) || 0)) > 0.01){
+      await commitSet(d.el.dataset.ffid, attrs);
+    }else{
+      d.el.setAttribute(d.key[0], d.orig.x);
+      d.el.setAttribute(d.key[1], d.orig.y);
+      setHud(0,0);
+    }
+    return;
+  }
   if(resizing){
     const r = resizing;
     resizing = null;
@@ -794,7 +940,7 @@ window.addEventListener('keydown', async e=>{
     return;
   }
   if(e.ctrlKey && e.key.toLowerCase() === 'y'){ e.preventDefault(); await redo(); return; }
-  if(e.target.tagName === 'INPUT') return;
+  if(e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
   if(e.key === '+' || e.key === '='){ setZoom(zoom * 1.2); return; }
   if(e.key === '-' || e.key === '_'){ setZoom(zoom / 1.2); return; }
   if(e.key === '0'){ setZoom(fitZoom()); return; }
@@ -1076,6 +1222,48 @@ document.querySelectorAll('#row-order [data-order]').forEach(b=>{
 bindNum('p-fs', 'font-size');
 bindNum('p-w', 'width');
 bindNum('p-h', 'height');
+
+/* 文字内容：change（失焦）提交；Ctrl+Enter 直接保存。
+   服务端把 \n 编成 tspan，行距沿用图里原有的节奏。 */
+function commitText(id, text){
+  queue(async function(){
+    try{
+      const r = await fetch('/set_text', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({id: id, text: text})
+      });
+      const j = await r.json();
+      if(!j.ok) throw new Error(j.error || '保存失败');
+      await refresh();
+      toast(id + '  文字已更新');
+    }catch(err){
+      toast('失败 ' + err.message);
+      await refresh();
+    }
+  });
+}
+document.getElementById('p-text').onchange = function(){
+  if(!sel || !isText(sel)) return;
+  const spans = sel.querySelectorAll('tspan');
+  const cur = spans.length
+    ? Array.from(spans).map(x=>x.textContent).join('\n')
+    : (sel.textContent || '');
+  if(this.value !== cur) commitText(sel.dataset.ffid, this.value);
+};
+document.getElementById('p-text').addEventListener('keydown', function(e){
+  if(e.key === 'Enter' && e.ctrlKey){ e.preventDefault(); this.blur(); }
+  e.stopPropagation();          // 别让 G/S/T 这些单键快捷键在打字时触发
+});
+
+/* 双击文字 = 直达内容编辑。比在面板里找输入框快一步。 */
+canvas.addEventListener('dblclick', function(e){
+  const el = e.target.closest && e.target.closest('[data-ffid]');
+  if(el && isText(el) && !el.hasAttribute('data-fflock')){
+    select(el);
+    const ta = document.getElementById('p-text');
+    ta.focus(); ta.select();
+  }
+});
 
 document.getElementById('zoom-in').onclick  = function(){ setZoom(zoom * 1.2); };
 document.getElementById('zoom-out').onclick = function(){ setZoom(zoom / 1.2); };

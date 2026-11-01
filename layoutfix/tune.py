@@ -108,6 +108,21 @@ fr.onload = async () => {
         s3.ops.length === s1.ops.length);
   }
 
+  // 4b) 文字内容编辑：改内容 + 回车分行转 tspan；撤销后必须字节级还原
+  {
+    const raw0 = await fig();
+    await fetch('/set_text', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({id:'text:4', text:'新内容甲\\n新内容乙'})});
+    await sleep(300);
+    const raw1 = await fig();
+    const multi = raw1.indexOf('新内容甲') >= 0 && raw1.indexOf('<tspan') >= 0;
+    say('改文字 → 两行 tspan ' + (multi ? '已写入' : '未写入'), multi);
+    await fetch('/undo', {method:'POST'});
+    await sleep(300);
+    const raw2 = await fig();
+    say('撤销文字 → 字节级还原 ' + (raw2 === raw0 ? '一致' : '不一致'), raw2 === raw0);
+  }
+
   // 5) 主题与反相：断言按钮状态与生效状态一致，不只看按钮在不在
   const html = D.documentElement;
   const bl = D.getElementById('t-light'), bd = D.getElementById('t-dark');
@@ -287,6 +302,19 @@ def serve(fig: Path, port: int = 8770, open_browser: bool = True) -> None:
                         op = edit.undo_last(fig)
                         if op:
                             redo_stack.append(op)
+                    self._send(json.dumps({"ok": True, "op": op},
+                                          ensure_ascii=False).encode("utf-8"))
+                except Exception as exc:                 # noqa: BLE001
+                    self._send(json.dumps({"ok": False, "error": str(exc)},
+                                          ensure_ascii=False).encode("utf-8"))
+                return
+            if path == "/set_text":
+                n = int(self.headers.get("Content-Length", 0))
+                try:
+                    req = json.loads(self.rfile.read(n) or b"{}")
+                    with lock:
+                        op = edit.set_text(fig, req["id"], str(req.get("text") or ""))
+                        redo_stack.clear()
                     self._send(json.dumps({"ok": True, "op": op},
                                           ensure_ascii=False).encode("utf-8"))
                 except Exception as exc:                 # noqa: BLE001

@@ -636,11 +636,85 @@ def set_values(fig: Path, eid: str, attrs: dict) -> dict:
     return op
 
 
+# --------------------------------------------------------------------------
+# 文字内容（含回车分行 → tspan）
+# --------------------------------------------------------------------------
+def _xml_escape(s: str) -> str:
+    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def _text_region(raw: str, t: dict) -> tuple[int, int]:
+    """<text> 元素全区域的字节范围（开标签 + 内容 + </text>；自闭合则只有标签）。"""
+    if t["text"].rstrip().endswith("/>"):
+        return t["start"], t["end"]
+    close = raw.find("</text>", t["end"])
+    if close < 0:
+        raise ValueError("找不到 </text>")
+    return t["start"], close + len("</text>")
+
+
+def _build_text_inner(tag: str, text: str, old_inner: str) -> str:
+    """把多行文本编成 tspan。行距沿用旧 tspan 的 dy（换行节奏是既有设计，
+    不该因为改个字就跳成 1.35em）；全新多行才用 字号×1.35 兜底。"""
+    lines = str(text).split("\n")
+    if len(lines) == 1:
+        return _xml_escape(lines[0])
+    fs = _num(_attr(tag, "font-size"))
+    if not fs:
+        fs = _num(_get_style(tag).get("font-size"))
+    fs = fs or 14
+    x = _attr(tag, "x")
+    dy = None
+    tspans = re.findall(r"<tspan\b[^>]*>", old_inner)
+    if len(tspans) >= 2:
+        dy = _attr(tspans[1], "dy")
+        x = _attr(tspans[0], "x") or x
+    xattr = f' x="{x}"' if x is not None else ""
+    dyattr = dy if dy is not None else _fmt(fs * 1.35)
+    parts = []
+    for i, ln in enumerate(lines):
+        d = "0" if i == 0 else dyattr
+        parts.append(f'<tspan{xattr} dy="{d}">{_xml_escape(ln)}</tspan>')
+    return "".join(parts)
+
+
+def _retext_raw(raw: str, eid: str, text: str) -> tuple[str, str]:
+    """返回 (新全文, 旧元素整段字节)。旧整段留着，撤销才能字节级还原。"""
+    t = _locate(raw, eid)
+    if t["name"] != "text":
+        raise ValueError(f"{eid} 不是文本元素")
+    s0, e0 = _text_region(raw, t)
+    old_inner = raw[t["end"]:e0 - len("</text>")] if e0 > t["end"] else ""
+    tag = t["text"]
+    inner = _build_text_inner(tag, text, old_inner)
+    if tag.rstrip().endswith("/>"):
+        new_el = tag.rstrip()[:-2].rstrip() + ">" + inner + "</text>"
+    else:
+        new_el = tag + inner + "</text>"
+    return raw[:s0] + new_el + raw[e0:], raw[s0:e0]
+
+
+def set_text(fig: Path, eid: str, text: str) -> dict:
+    """改文字内容并记一行清单。from 存整个旧元素字节，撤销按字节拼回。"""
+    raw = read_raw(fig)
+    _backup(fig, raw)
+    new, old_region = _retext_raw(raw, eid, str(text))
+    if new == raw:
+        raise RuntimeError("文本未变化")
+    write_raw(fig, new)
+    op = {"id": eid, "op": "set_text", "to": text, "from": old_region}
+    append_op(fig, op)
+    return op
+
+
 def redo_op(raw: str, op: dict) -> str:
     """把一条已撤销的 op 重新应用（undo 的严格逆运算）。"""
     kind = op.get("op")
     if kind == "set":
         return apply_set(raw, op["id"], op.get("to") or {})
+    if kind == "set_text":
+        new, _ = _retext_raw(raw, op["id"], op.get("to") or "")
+        return new
     if kind == "order":
         root = _build_tree(raw)
         parent = _find_by_path(root, op.get("parent") or "")
@@ -664,6 +738,11 @@ def undo_last(fig: Path) -> dict | None:
     raw = read_raw(fig)
     if last.get("op") == "set":
         write_raw(fig, apply_set(raw, last["id"], last.get("from") or {}))
+    elif last.get("op") == "set_text":
+        # from 是旧元素整段字节：按字节拼回去，连行距节奏和空格都一个不动
+        t = _locate(raw, last["id"])
+        s0, e0 = _text_region(raw, t)
+        write_raw(fig, raw[:s0] + last["from"] + raw[e0:])
     elif last.get("op") == "order":
         write_raw(fig, undo_order(raw, last))
     else:

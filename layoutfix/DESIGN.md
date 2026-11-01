@@ -104,8 +104,14 @@ apply_move(raw, eid, dx, dy) -> str       # 纯字符串变换，不碰磁盘
 apply_set(raw, eid, attrs) -> str
 move(fig, eid, dx, dy) -> dict            # 落盘 + 记清单
 set_values(fig, eid, attrs) -> dict
+set_text(fig, eid, text) -> dict          # 文字内容；\n → tspan；from 存旧元素整段字节
 undo_last(fig) -> dict | None
 ```
+
+**文字内容（set_text）**：`to` 是逻辑文本（`\n` 分行），`from` 是旧元素
+**整段字节**（开标签+旧内容+`</text>`）。撤销 = 把这段字节原样拼回，
+所以行距节奏、空格、属性顺序一个不动；重做 = 按 `to` 重建（确定性，同样的
+输入编出同样的 tspan）。行距沿用旧 tspan 的 dy，全新多行按 字号×1.35 兜底。
 
 **编号规则（唯一真相）**：`eid = "<tag>:<该 tag 在文档中出现的序号>"`，按标签名**分别计数**，覆盖 `MOVABLE` 全部类型，跳过闭合标签与注释。`annotate` / `inventory` / `_locate` 三处必须完全一致，否则拖 A 改到 B。
 
@@ -133,6 +139,7 @@ undo_last(fig) -> dict | None
 | `/selftest` | GET | 合成拖拽自测页 |
 | `/apply` | POST | `{id, dx, dy}` 位移 |
 | `/set` | POST | `{id, attrs:{...}}` 改属性 |
+| `/set_text` | POST | `{id, text}` 改文字内容（`\n` → tspan） |
 | `/undo` | POST | 撤销最后一条 |
 
 约束：
@@ -173,7 +180,7 @@ undo_last(fig) -> dict | None
 | 单元 | 手工构造最小 SVG | 换行不被改写、`width` 不命中 `stroke-width`、单引号属性、NaN 拦截、零位移拦截 |
 | 逐元素 | 对图里**每个**元素单独施加位移，比对全部标签文本 | 编号一致性（拖 A 不会改到 B） |
 | 往返 | N 次编辑 + N 次撤销，比对字节 | 撤销精确性 |
-| 端到端 | `/selftest` 合成拖拽 | 预览、落盘、清单、违例刷新、主题切换 |
+| 端到端 | `/selftest` 合成拖拽 | 预览、落盘、清单、违例刷新、主题切换、文字编辑（撤销后字节还原） |
 | 回归 | `demo/` 全部图跑 `check` | 阈值调整后误报/漏报是否变化 |
 
 **逐元素验证是编号一致性的唯一可靠验证方式**，读代码看不出问题。脚本见 `tmp/`，逻辑：`apply_move(raw, eid, 5, 0)` 后对比两版标签列表，差异必须**恰好**是目标那一个。
@@ -202,7 +209,7 @@ undo_last(fig) -> dict | None
 - 只处理单页，多页 PDF 只看第一页
 - `arrow_dangling` 只认 `marker-end` 标记的箭头，手绘多边形箭头认不出
 - `label_offcenter` 只查 `text-anchor="middle"`，且一框多字（引脚编号）时自动跳过
-- 拖动界面不改字号以外的排版属性，不支持多选、旋转、等比缩放
+- 拖动界面管版面、文字内容（tspan 多行）与线段端点（限无 transform 的 line）；不支持多选、旋转、等比缩放、增删元素
 - 坐标默认按 CSS 96dpi 折算毫米，精确物理尺寸需 `--width-mm`
 - 元素编号依赖文档顺序：agent 重新生成时若增删元素，旧清单会指向错位的元素
 
