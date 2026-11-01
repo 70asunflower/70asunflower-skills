@@ -46,6 +46,19 @@
 - 目录里不留 `__pycache__` / `.DS_Store`
 - description 或正文里要有一句「何时用」（`Triggers:` 或「何时使用」段），否则路由不准
 
+## 提交署名：用当前模型名
+
+在本仓库提交时，**提交者名字用当前运行的模型官方名**，不用用户名。
+
+```bash
+git config user.name "DeepSeek-V4.1-Flash"   # 仓库级，别动全局
+```
+
+- 名字用官方写法：`DeepSeek-V4.1-Flash`、`Claude Sonnet 4.5`、`GPT-5`、`Gemini 2.5 Pro`
+- **换模型就重设**，别让上次的模型名挂在这一轮的提交上
+- **邮箱保持用户自己的**（`user.email` 不要改）——改了 GitHub 就认不出这是他的提交
+- 不确定自己叫什么就跳过，不要编一个名字
+
 ## 工具
 
 在仓库目录下运行，配置在 `~/.agents/skillsync.json`：
