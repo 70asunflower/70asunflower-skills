@@ -189,6 +189,40 @@ fr.onload = async () => {
     }
   }
 
+  // 7) Ctrl 多选 → 整体拖动 = 一条 move_multi → 撤销字节级还原
+  {
+    const raw0 = await fig();
+    const a = D.querySelector('[data-ffid="text:5"]');
+    const b = D.querySelector('[data-ffid="text:6"]');
+    if(a && b){
+      const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+      a.dispatchEvent(mk('mousedown', ra.left+2, ra.top+2));
+      W.dispatchEvent(mk('mouseup', ra.left+2, ra.top+2));
+      await sleep(120);
+      b.dispatchEvent(new W.MouseEvent('mousedown', {bubbles:true, cancelable:true,
+        clientX:rb.left+2, clientY:rb.top+2, ctrlKey:true}));
+      W.dispatchEvent(new W.MouseEvent('mouseup', {bubbles:true}));
+      await sleep(120);
+      say('Ctrl 加选 → 状态栏=' + D.getElementById('st-id').textContent,
+          D.getElementById('st-id').textContent.indexOf('2') >= 0);
+      a.dispatchEvent(mk('mousedown', ra.left+2, ra.top+2));
+      await sleep(50);
+      for(let i=1;i<=4;i++){ W.dispatchEvent(mk('mousemove', ra.left+2+i*3, ra.top+2)); await sleep(25); }
+      W.dispatchEvent(mk('mouseup', ra.left+2+12, ra.top+2));
+      await sleep(900);
+      const s2 = await state();
+      const lo = s2.ops[s2.ops.length-1];
+      say('整体拖 → op=' + (lo&&lo.op) + ' n=' + (lo&&lo.n),
+          !!lo && lo.op === 'move_multi' && lo.n === 2);
+      await fetch('/undo', {method:'POST'});
+      await sleep(300);
+      const raw2 = await fig();
+      say('撤销整体拖 → 字节还原 ' + (raw2 === raw0 ? '一致' : '不一致'), raw2 === raw0);
+    } else {
+      say('text:5/6 缺失，跳过多选回归', true);
+    }
+  }
+
   const fin = await state();
   log.innerHTML = out.join('<br>') + '<br><br>最终违例 ' + fin.counts.violations + ' 条 / 改动 ' + fin.ops.length + ' 条';
 };
@@ -377,8 +411,12 @@ def serve(fig: Path, port: int = 8770, open_browser: bool = True) -> None:
                 req = json.loads(self.rfile.read(n) or b"{}")
                 with lock:
                     f = get_fig()
-                    edit.move(f, req["id"], float(req["dx"]), float(req["dy"]),
-                              note=req.get("note", ""), expect=req.get("expect"))
+                    if req.get("moves"):
+                        # 整体移动（多选拖动）：一条 move_multi op，撤销整体回退
+                        edit.move_multi(f, req["moves"], note=req.get("note", ""))
+                    else:
+                        edit.move(f, req["id"], float(req["dx"]), float(req["dy"]),
+                                  note=req.get("note", ""), expect=req.get("expect"))
                     stacks_for(f).clear()
                 self._send(b'{"ok":true}')
             except Exception as exc:                     # noqa: BLE001

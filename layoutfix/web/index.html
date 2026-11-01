@@ -113,6 +113,7 @@
     outline:1px solid #7aa7e0; outline-offset:0;
   }
   #canvas svg .ff-sel{outline:1.5px solid var(--sel) !important; outline-offset:0}
+  #canvas svg .ff-primary{outline:2.5px solid var(--sel) !important; outline-offset:0}
   #canvas svg .ff-hit{outline:2px solid var(--err) !important; outline-offset:1px}
 
   #statusbar{
@@ -185,6 +186,12 @@
     line-height:1.35; box-shadow:0 2px 10px rgba(0,0,0,.3);
   }
   #ff-editor:focus{outline:none}
+  /* 框选橡皮筋：stage 内绝对定位，视口坐标换算成 stage 坐标 */
+  #ff-marquee{
+    position:absolute; z-index:5; pointer-events:none;
+    border:1px solid var(--sel);
+    background:color-mix(in srgb, var(--sel) 10%, transparent);
+  }
   #props .btnrow{display:flex; align-items:center; gap:4px;
                  padding:0 12px 10px; flex-wrap:wrap}
   #props .btnrow .lbl{color:var(--mute); margin-right:2px}
@@ -343,7 +350,8 @@
 const UNIT_MM = {{UNIT_MM}};
 const NS = 'http://www.w3.org/2000/svg';
 let state = {violations: [], ops: [], touched: [], unit_mm: UNIT_MM};
-let sel = null, selId = null, dragging = null, resizing = null, zoom = 1;
+let sel = null, selId = null, selIds = [], dragging = null, resizing = null,
+    marquee = null, zoom = 1;
 let gridOn = true, snapOn = true, gridStep = 20, invert = true;
 // 所有写操作串成一条链。裸 fetch 并发时，/undo 可能抢在 /apply 前面到，
 // 撤掉的是上一条 op，用户这次撤销白按，文件里还多一条不该有的改动。
@@ -449,11 +457,12 @@ function drawGrid(){
 
 /* ---------- 吸附 ---------- */
 const SNAP_PX = 6;
-function collectTargets(exclude){
+function collectTargets(excludeList){
   const s = svgEl(), xs = [], ys = [];
   if(!s) return {xs, ys};
+  const ex = Array.isArray(excludeList) ? excludeList : [excludeList];
   s.querySelectorAll('[data-ffid]:not([data-fflock])').forEach(el=>{
-    if(el === exclude || el.contains(exclude) || exclude.contains(el)) return;
+    if(ex.some(x => x === el || x.contains(el) || el.contains(x))) return;
     let b;
     try{ b = el.getBBox(); }catch(_){ return; }
     if(b.width < 0.5 && b.height < 0.5) return;
@@ -593,14 +602,40 @@ function previewShift(el, o, dx, dy){
   }
 }
 
-/* ---------- 拖动 ---------- */
-function select(el){
-  canvas.querySelectorAll('.ff-sel').forEach(e=>e.classList.remove('ff-sel'));
-  sel = el;
-  selId = el ? el.dataset.ffid : null;
-  if(el) el.classList.add('ff-sel');
-  document.getElementById('st-id').textContent = selId || '—';
-  showProps(el);
+/* ---------- 选择体系：单选 / Ctrl·Shift 加选 / 框选，末位=主元素 ---------- */
+function selEls(){
+  return selIds.map(id=>canvas.querySelector('[data-ffid="'+CSS.escape(id)+'"]'))
+               .filter(Boolean);
+}
+function primaryEl(){
+  return selIds.length
+    ? canvas.querySelector('[data-ffid="'+CSS.escape(selIds[selIds.length-1])+'"]')
+    : null;
+}
+function paintSelection(){
+  canvas.querySelectorAll('.ff-sel, .ff-primary')
+        .forEach(e=>e.classList.remove('ff-sel','ff-primary'));
+  selEls().forEach(e=>e.classList.add('ff-sel'));
+  const p = primaryEl();
+  if(p && selIds.length > 1) p.classList.add('ff-primary');
+}
+function setSelection(ids){
+  selIds = (ids || []).filter(Boolean);
+  sel = primaryEl();
+  selId = sel ? sel.dataset.ffid : null;
+  paintSelection();
+  document.getElementById('st-id').textContent =
+    selIds.length > 1 ? selIds.length + ' 个选中' : (selId || '—');
+  showProps(sel);
+}
+function select(el, add){
+  if(!el){ setSelection([]); return; }
+  const id = el.dataset.ffid;
+  if(add && selIds.includes(id)){
+    setSelection(selIds.filter(x=>x !== id));   // 加选状态下再点 = 移出选择
+    return;
+  }
+  setSelection(add ? selIds.concat([id]) : [id]);
 }
 
 /* ---------- 属性面板 ---------- */
@@ -849,12 +884,14 @@ function showProps(el){
   // 只显示 text:4 这种编号，点违例自动选中后根本不知道选中的是哪段字。
   // 补一段内容摘要，矩形之类没有文字的就留空。
   const hint = document.getElementById('p-hint');
+  const multiPrefix = selIds.length > 1 ? '[已选 ' + selIds.length + ' 个·显示主元素] ' : '';
   if(isText(el)){
     const txt = (el.textContent || '').replace(/\s+/g, ' ').trim();
-    hint.textContent = txt.length > 12 ? '「' + txt.slice(0, 12) + '…」' : '「' + txt + '」';
+    const body = txt.length > 12 ? '「' + txt.slice(0, 12) + '…」' : '「' + txt + '」';
+    hint.textContent = multiPrefix + body;
     hint.title = txt;
   } else {
-    hint.textContent = '';
+    hint.textContent = selIds.length > 1 ? multiPrefix.trim() : '';
     hint.title = '';
   }
   const t = isText(el);
@@ -952,19 +989,39 @@ canvas.addEventListener('mousedown', e=>{
   // 缩放的监听紧接着因 `if(!sel) return` 直接返回——拖角就彻底失效了。
   if(e.target.hasAttribute && e.target.hasAttribute('data-ffhandle')) return;
   const el = e.target.closest('[data-ffid]');
-  // 点空白或背景板 = 取消选中。没有这一步，选中状态会一直粘着上一个元素，
-  // 属性面板停在旧对象上，很容易改错东西。
-  if(!el || el.hasAttribute('data-fflock')){ select(null); return; }
+  // 空白/背景板按下 = 开始框选；松开时没拖动就当「取消选中」。
+  // 没有这一步，选中状态会一直粘着上一个元素，属性面板停在旧对象上。
+  if(!el || el.hasAttribute('data-fflock')){
+    e.preventDefault();
+    cancelNudge(false);
+    marquee = {x0: e.clientX, y0: e.clientY, moved: false};
+    const d = document.createElement('div');
+    d.id = 'ff-marquee';
+    stage.appendChild(d);
+    return;
+  }
   e.preventDefault();
   cancelNudge(false);          // 键控微调还没落盘就被拖动接手：按原位收场，不计 op
-  select(el);
+  // Ctrl/Shift 加选：只改选择，不启动拖动
+  if(e.ctrlKey || e.shiftKey){ select(el, true); return; }
+  // 点在已选组内：保持多选、把它提成主元素，整组可拖
+  if(selIds.includes(el.dataset.ffid) && selIds.length > 1){
+    setSelection(selIds.filter(x=>x !== el.dataset.ffid).concat([el.dataset.ffid]));
+  } else if(!selIds.includes(el.dataset.ffid)){
+    select(el);
+  }
   document.body.classList.add('grabbing');
+  const members = selEls();
   const p0 = toUser(e);
   // 吸附基准用根坐标系的 AABB，和 toUser 算出的 dx 在同一空间
-  let base = {x:0, y:0, width:0, height:0};
-  try{ base = visualBox(el); }catch(_){}
-  dragging = {el, p0, base, dx:0, dy:0, snap: snapAttrs(el),
-              targets: collectTargets(el),
+  const bases = members.map(function(m){
+    let b = {x:0, y:0, width:0, height:0};
+    try{ b = visualBox(m); }catch(_){}
+    return b;
+  });
+  dragging = {members, bases, p0, dx:0, dy:0,
+              snaps: members.map(m=>snapAttrs(m)),
+              targets: collectTargets(members),
               tol: pxToUser(SNAP_PX)};
 });
 
@@ -987,29 +1044,59 @@ function connectorEnds(el){
   return null;
 }
 
+function unionBox(boxes){
+  const u = {x: Infinity, y: Infinity, width: 0, height: 0};
+  boxes.forEach(function(b){
+    u.x = Math.min(u.x, b.x); u.y = Math.min(u.y, b.y);
+    u.width = Math.max(u.width, b.x + b.width - u.x);
+    u.height = Math.max(u.height, b.y + b.height - u.y);
+  });
+  return u;
+}
+function updateMarquee(e){
+  const d = document.getElementById('ff-marquee');
+  if(!d) return;
+  const stR = stage.getBoundingClientRect();
+  d.style.left = (Math.min(marquee.x0, e.clientX) - stR.left + stage.scrollLeft) + 'px';
+  d.style.top = (Math.min(marquee.y0, e.clientY) - stR.top + stage.scrollTop) + 'px';
+  d.style.width = Math.abs(e.clientX - marquee.x0) + 'px';
+  d.style.height = Math.abs(e.clientY - marquee.y0) + 'px';
+  if(Math.abs(e.clientX - marquee.x0) > 3 || Math.abs(e.clientY - marquee.y0) > 3)
+    marquee.moved = true;
+}
+
 window.addEventListener('mousemove', e=>{
+  if(marquee){ updateMarquee(e); return; }
   if(!dragging) return;
   const p = toUser(e);
   const rawDx = p.x - dragging.p0.x, rawDy = p.y - dragging.p0.y;
-  const ends = connectorEnds(dragging.el);
   let r;
-  if(ends){
-    // 先按原始位移预览一次，端点坐标才反映移动后的位置
-    previewShift(dragging.el, dragging.snap, rawDx, rawDy);
-    const m = dragging.el.getScreenCTM();
-    const cx = [], cy = [];
-    ends.forEach(function(pt){
-      const q = new DOMPoint(pt[0], pt[1]).matrixTransform(m);
-      cx.push(q.x); cy.push(q.y);
-    });
-    const bx = snapOn ? bestSnap(cx, dragging.targets.xs, dragging.tol) : null;
-    const by = snapOn ? bestSnap(cy, dragging.targets.ys, dragging.tol) : null;
-    r = {dx: rawDx + (bx ? bx.d : 0), dy: rawDy + (by ? by.d : 0),
-         marks: {x: bx ? bx.at : null, y: by ? by.at : null}};
+  if(dragging.members.length === 1){
+    const el = dragging.members[0];
+    const ends = connectorEnds(el);
+    if(ends){
+      // 先按原始位移预览一次，端点坐标才反映移动后的位置
+      previewShift(el, dragging.snaps[0], rawDx, rawDy);
+      const m = el.getScreenCTM();
+      const cx = [], cy = [];
+      ends.forEach(function(pt){
+        const q = new DOMPoint(pt[0], pt[1]).matrixTransform(m);
+        cx.push(q.x); cy.push(q.y);
+      });
+      const bx = snapOn ? bestSnap(cx, dragging.targets.xs, dragging.tol) : null;
+      const by = snapOn ? bestSnap(cy, dragging.targets.ys, dragging.tol) : null;
+      r = {dx: rawDx + (bx ? bx.d : 0), dy: rawDy + (by ? by.d : 0),
+           marks: {x: bx ? bx.at : null, y: by ? by.at : null}};
+    }else{
+      r = snapAll(dragging.bases[0], dragging.targets, rawDx, rawDy, dragging.tol);
+    }
   }else{
-    r = snapAll(dragging.base, dragging.targets, rawDx, rawDy, dragging.tol);
+    // 整体移动：以组包围盒为吸附基准，组内成员不互吸
+    r = snapAll(unionBox(dragging.bases), dragging.targets, rawDx, rawDy, dragging.tol);
   }
-  previewShift(dragging.el, dragging.snap, r.dx, r.dy);
+  dragging.members.forEach(function(m, i){
+    previewShift(m, dragging.snaps[i], r.dx, r.dy);
+  });
   drawGuides(r.marks.x, r.marks.y);
   const tag = (r.marks.x !== null ? 'x' : '') + (r.marks.y !== null ? 'y' : '');
   setSnap(tag || '—');
@@ -1017,7 +1104,7 @@ window.addEventListener('mousemove', e=>{
   dragging.dx = r.dx;
   dragging.dy = r.dy;
   setHud(r.dx, r.dy);
-  const b = dragging.base;
+  const b = unionBox(dragging.bases);
   document.getElementById('st-pos').textContent =
     'x ' + (b.x + r.dx).toFixed(1) + '  y ' + (b.y + r.dy).toFixed(1);
 });
@@ -1073,7 +1160,7 @@ canvas.addEventListener('mousedown', function(e){
   const key = e.target.getAttribute('data-ffend') === '1' ? ['x1', 'y1'] : ['x2', 'y2'];
   endDrag = {el: sel, key: key,
              orig: {x: sel.getAttribute(key[0]), y: sel.getAttribute(key[1])},
-             targets: collectTargets(sel), tol: pxToUser(SNAP_PX), cur: null};
+             targets: collectTargets([sel]), tol: pxToUser(SNAP_PX), cur: null};
 });
 
 window.addEventListener('mousemove', function(e){
@@ -1100,6 +1187,23 @@ window.addEventListener('mousemove', function(e){
 
 window.addEventListener('mouseup', async ()=>{
   document.body.classList.remove('grabbing');
+  if(marquee){
+    const m = marquee; marquee = null;
+    const d = document.getElementById('ff-marquee');
+    if(d) d.remove();
+    const hits = [];
+    if(m.moved){
+      const rx = Math.min(m.x0, e.clientX), ry = Math.min(m.y0, e.clientY);
+      const rw = Math.abs(e.clientX - m.x0), rh = Math.abs(e.clientY - m.y0);
+      canvas.querySelectorAll('[data-ffid]:not([data-fflock])').forEach(function(el){
+        const b = el.getBoundingClientRect();
+        if(b.left < rx + rw && b.right > rx && b.top < ry + rh && b.bottom > ry)
+          hits.push(el.dataset.ffid);
+      });
+    }
+    setSelection(hits);      // 原地点一下空白 = 清空选中（与旧行为一致）
+    return;
+  }
   if(endDrag){
     const d = endDrag; endDrag = null;
     clearGuides(); setSnap('—');
@@ -1140,16 +1244,19 @@ window.addEventListener('mouseup', async ()=>{
     return;
   }
   if(!dragging) return;
-  const {el, dx, dy, snap} = dragging;
-  dragging = null;
-  restoreAttrs(el, snap);
+  const D_ = dragging; dragging = null;
+  D_.members.forEach(function(m, i){ restoreAttrs(m, D_.snaps[i]); });
   clearGuides();
   setSnap('—');
   // 手抖阈值按显示口径：折算成毫米后肉眼不可见（<0.02mm）就不算一次改动。
   // 旧阈值 0.15 单位在 96dpi 下约 0.04mm——显示成 Δ0.00 却落了盘，
   // 清单里全是 AI 读不懂意图的废 op。
-  if(Math.hypot(dx * state.unit_mm, dy * state.unit_mm) < 0.02){ setHud(0,0); return; }
-  await commit(el.dataset.ffid, dx, dy);
+  if(Math.hypot(D_.dx * state.unit_mm, D_.dy * state.unit_mm) < 0.02){ setHud(0,0); return; }
+  const moves = D_.members.map(function(m){
+    return {id: m.dataset.ffid, dx: D_.dx, dy: D_.dy};
+  });
+  if(moves.length === 1) await commit(moves[0].id, D_.dx, D_.dy);
+  else await commitMulti(moves, D_.dx, D_.dy);
 });
 
 window.addEventListener('keydown', async e=>{
@@ -1167,7 +1274,7 @@ window.addEventListener('keydown', async e=>{
   if(e.key === 's' || e.key === 'S'){ toggleSnap(); return; }
   if(e.key === 't' || e.key === 'T'){ toggleTheme(); return; }
   if(e.key === 'Escape'){
-    if(nudge) cancelNudge(false); else select(null);
+    if(nudge) cancelNudge(false); else setSelection([]);
     return;
   }
   if(sel && isText(sel) && (e.key === '[' || e.key === ']')){
@@ -1177,14 +1284,15 @@ window.addEventListener('keydown', async e=>{
     commitSet(sel.dataset.ffid, {'font-size': next});
     return;
   }
-  if(!sel || ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].indexOf(e.key) < 0) return;
+  if(!selIds.length || ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].indexOf(e.key) < 0) return;
   if(dragging || resizing) return;
   e.preventDefault();
   const step = e.shiftKey ? 0.2 : 1.0;
-  if(!nudge) nudge = {el: sel, snap: snapAttrs(sel), dx: 0, dy: 0, t: null};
+  if(!nudge) nudge = {items: selEls().map(function(el){
+                        return {el: el, snap: snapAttrs(el)}; }), dx: 0, dy: 0, t: null};
   nudge.dx += e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
   nudge.dy += e.key === 'ArrowUp'   ? -step : e.key === 'ArrowDown'  ? step : 0;
-  previewShift(nudge.el, nudge.snap, nudge.dx, nudge.dy);
+  nudge.items.forEach(function(it){ previewShift(it.el, it.snap, nudge.dx, nudge.dy); });
   setHud(nudge.dx, nudge.dy);
   // 连按/按住方向键不能每键落一条 op：按住一秒能刷出十几条 1px 碎步，
   // 清单没法看、撤销要按十几次。静默 280ms 才算一次手势，合并成一条净位移。
@@ -1195,14 +1303,17 @@ window.addEventListener('keydown', async e=>{
 window.addEventListener('resize', function(){ applyZoom(); setTitle(); });
 
 /* ---------- 键控微调：连续按键合并成一次落盘 ---------- */
-let nudge = null;   // {el, snap, dx, dy, t}
+let nudge = null;   // {items:[{el,snap}], dx, dy, t}
 function cancelNudge(commitIt){
   if(!nudge) return;
   const n = nudge; nudge = null;
   clearTimeout(n.t);
-  restoreAttrs(n.el, n.snap);
+  n.items.forEach(function(it){ restoreAttrs(it.el, it.snap); });
   if(commitIt && (Math.abs(n.dx) > 0.001 || Math.abs(n.dy) > 0.001)){
-    commit(n.el.dataset.ffid, n.dx, n.dy);
+    if(n.items.length === 1) commit(n.items[0].el.dataset.ffid, n.dx, n.dy);
+    else commitMulti(n.items.map(function(it){
+      return {id: it.el.dataset.ffid, dx: n.dx, dy: n.dy};
+    }), n.dx, n.dy);
   }else{
     setHud(0,0);
   }
@@ -1215,6 +1326,26 @@ stage.addEventListener('wheel', e=>{
   e.preventDefault();
   setZoom(zoom * (e.deltaY > 0 ? 0.9 : 1.1));
 }, {passive:false});
+
+function commitMulti(moves, dx, dy){
+  return queue(async function(){
+    try{
+      const r = await fetch('/apply', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({moves: moves})
+      });
+      const j = await r.json();
+      if(!j.ok) throw new Error(j.error || '保存失败');
+      await refresh();
+      toast('整体 ' + moves.length + ' 个  Δ ' + fmt(dx*state.unit_mm) + ' ' +
+            fmt(dy*state.unit_mm) + ' mm');
+    }catch(err){
+      toast('失败 ' + err.message);
+      await refresh();
+    }
+    setHud(0,0);
+  });
+}
 
 function commit(ffid, dx, dy){ return queue(()=>doCommit(ffid, dx, dy)); }
 async function doCommit(ffid, dx, dy){
@@ -1310,17 +1441,15 @@ async function refresh(){
   selEl.onchange = function(){
     location.href = '/?file=' + encodeURIComponent(this.value) + '&z=' + zoom.toFixed(2);
   };
-  if(selId){
-    const el = canvas.querySelector('[data-ffid="' + CSS.escape(selId) + '"]');
-    if(el){
-      sel = el; selId = el.dataset.ffid;
-      el.classList.add('ff-sel');
-      // 恢复选中走的是另一条路径，绕过了 select()，状态栏得在这里同步，
-      // 否则明明选中了元素，底栏还显示"元素 —"。
-      document.getElementById('st-id').textContent = selId;
-      showProps(el);
-    } else { sel = null; selId = null; showProps(null); }
-  }
+  // 恢复选中：多选集合里已消失的元素剔除，其余按 eid 找回（跨 refresh 保持）
+  if(selIds.length){
+    selIds = selIds.filter(id=>canvas.querySelector('[data-ffid="' + CSS.escape(id) + '"]'));
+    paintSelection();
+    sel = primaryEl(); selId = sel ? sel.dataset.ffid : null;
+    document.getElementById('st-id').textContent =
+      selIds.length > 1 ? selIds.length + ' 个选中' : (selId || '—');
+    showProps(sel);
+  } else { sel = null; selId = null; showProps(null); }
 }
 
 // 检查代码是给 agent 和 CI 看的，人看的是中文类别。
@@ -1434,6 +1563,12 @@ function renderOps(){
 
     if(o.op === 'order'){
       v.textContent = '图层 ' + (MODELABEL[o.mode] || ('第 ' + o.to + ' 层'));
+    } else if(o.op === 'move_multi'){
+      const k = state.unit_mm || UNIT_MM;
+      const mv = o.moves || [];
+      v.textContent = '整体 ' + mv.length + ' 个  Δ ' +
+        fmt((mv.length ? mv[0].dx : 0) * k) + ', ' +
+        fmt((mv.length ? mv[0].dy : 0) * k) + ' mm';
     } else if(o.op === 'set'){
       const to = o.to || {};
       v.textContent = Object.keys(to).map(k=>{
@@ -1447,7 +1582,10 @@ function renderOps(){
     row.appendChild(id); row.appendChild(v);
     row.title = JSON.stringify(o);
     // order 会改变文档顺序，元素编号跟着变，点了可能指错，所以只对 move/set 定位
-    if(o.op !== 'order') row.onclick = function(){ flash([o.id]); };
+    if(o.op !== 'order'){
+      const ids = o.op === 'move_multi' ? (o.moves || []).map(m=>m.id) : [o.id];
+      row.onclick = function(){ flash(ids); };
+    }
     box.appendChild(row);
   });
 }

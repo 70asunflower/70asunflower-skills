@@ -815,6 +815,38 @@ def clean_ops(fig: Path) -> dict:
             "before": len(ops), "after": len(out)}
 
 
+def apply_moves(raw: str, moves: list[dict]) -> str:
+    for m in moves:
+        raw = apply_move(raw, m["id"], float(m["dx"]), float(m["dy"]))
+    return raw
+
+
+def move_multi(fig: Path, moves: list[dict], note: str = "") -> dict:
+    """一次手势移动多个元素：记一条 move_multi op，撤销整体回退。
+    拆成 N 条单移 op 的话，Ctrl+Z 只退一个元素——比不改还糟。"""
+    moves = [{"id": m["id"], "dx": round(float(m["dx"]), 3),
+              "dy": round(float(m["dy"]), 3)} for m in moves]
+    if not moves:
+        raise ValueError("没有可移动的元素")
+    for m in moves:
+        if not (math.isfinite(m["dx"]) and math.isfinite(m["dy"])):
+            raise ValueError("位移必须是有限数值")
+    raw = read_raw(fig)
+    _backup(fig, raw)
+    new = apply_moves(raw, moves)
+    if new == raw:
+        raise RuntimeError("位移为 0，未改动")
+    write_raw(fig, new)
+    op = {"id": moves[0]["id"], "op": "move_multi", "n": len(moves), "moves": moves}
+    lbl = _text_label(raw, moves[0]["id"])
+    if lbl:
+        op["label"] = lbl
+    if note:
+        op["note"] = note
+    append_op(fig, op)
+    return op
+
+
 def redo_op(raw: str, op: dict) -> str:
     """把一条已撤销的 op 重新应用（undo 的严格逆运算）。"""
     kind = op.get("op")
@@ -823,6 +855,8 @@ def redo_op(raw: str, op: dict) -> str:
     if kind == "set_text":
         new, _ = _retext_raw(raw, op["id"], op.get("to") or "")
         return new
+    if kind == "move_multi":
+        return apply_moves(raw, op.get("moves") or [])
     if kind == "order":
         root = _build_tree(raw)
         parent = _find_by_path(root, op.get("parent") or "")
@@ -851,6 +885,11 @@ def undo_last(fig: Path) -> dict | None:
         t = _locate(raw, last["id"])
         s0, e0 = _text_region(raw, t)
         write_raw(fig, raw[:s0] + last["from"] + raw[e0:])
+    elif last.get("op") == "move_multi":
+        # 逆序逐个反向位移，一次手势整体还原
+        for m in reversed(last.get("moves") or []):
+            raw = apply_move(raw, m["id"], -float(m["dx"]), -float(m["dy"]))
+        write_raw(fig, raw)
     elif last.get("op") == "order":
         write_raw(fig, undo_order(raw, last))
     else:
