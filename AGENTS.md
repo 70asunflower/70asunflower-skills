@@ -27,6 +27,22 @@
 - **瘦身顺序**：删叙事与变更日志 → 跨技能去重 → 最后才把代码抽到 `scripts/`。反过来先动代码会破坏可用性。
 - **长技能（>300 行）**优先把细节拆到 `scripts/` 或子文件，正文只留判断规则、症状索引与指针。
 
+## 改完技能必须同步到所有 agent
+
+**任何技能改动（新增 / 删除 / 改名 / 改 frontmatter）做完，必须立刻跑完这三步，缺一步都算没做完：**
+
+```bash
+python scripts/skillsync.py link --apply    # 新增的技能补链接
+python scripts/skillsync.py prune --apply   # 删掉的技能清断链
+python scripts/skillsync.py doctor          # 必须回到「问题数: 0」
+```
+
+为什么强制：各 agent 的 skills 目录里是 **junction**，主库把目录删了，链接就变成空壳。
+不清理的话 agent 会看到一个指向空路径的技能条目——不报错，但行为不可预期。
+
+**`doctor` 不返回 0 就不要说「已完成」。** 删技能尤其容易漏，一次删 7 个会在 6 个 agent
+目录里留下 42 条断链。
+
 ## 技能规范
 
 规范的**唯一可执行定义**是 `scripts/lint_skills.py`，提交闸门会跑它，有 error 直接拒绝提交。

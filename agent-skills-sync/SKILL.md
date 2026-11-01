@@ -52,7 +52,8 @@ python scripts/skillsync.py scan          # 多份副本的漂移分类报告
 python scripts/skillsync.py doctor        # 断链、链式嵌套、主库含链接；豁免项不计入问题数
 python scripts/skillsync.py adopt         # 收编散落副本进仓库（默认 dry-run）
 python scripts/skillsync.py link          # 把仓库技能分发到各 agent（默认 dry-run）
-python scripts/skillsync.py gitignore     # 刷新 .gitignore 第三方区块
+python scripts/skillsync.py gitignore     # 刷新 .gitignore 第三方区块（只减不增）
+python scripts/skillsync.py prune         # 清理断链：技能删了、junction 还在（默认 dry-run）
 ```
 
 安全约定：`adopt` / `link` 默认只预演，加 `--apply` 才动文件；源目录只移动到 `_skillsync_backup/<时间戳>/`，绝不删除；删链接用 `os.rmdir`，不会碰目标内容。
@@ -71,6 +72,12 @@ python scripts/skillsync.py gitignore     # 刷新 .gitignore 第三方区块
 4. **Antigravity 侧**：因 `~/.gemini/config/skills.json` 已直挂主库根目录，主库新增技能重载窗口或新开会话即可自动识别；若新增技能未建在主库（放置在外部独立目录），必须同步加到 `~/.gemini/config/skills.json` 的 `entries` 列表中。
 5. 提交（`.git/hooks/pre-commit` 会自动跑一致性与结构闸门，见下节）
 
+**删技能**：`git rm -r <skill>` → `link --apply` + `prune --apply` → `doctor` 回到 0。
+
+主库把目录删了，各 agent 目录里那条 junction 就变成**空壳**——指向不存在的路径，
+不报错，但 agent 会看到一个行为不可预期的技能条目。一次删 7 个技能会在 6 个 agent
+目录里留下 42 条断链，`doctor` 只会逐条报，不会告诉你「删干净了没有」。
+
 **从某 agent 目录吸收新技能**：`python scripts/skillsync.py adopt --only <skill> --apply`。
 
 ## 提交闸门
@@ -78,6 +85,7 @@ python scripts/skillsync.py gitignore     # 刷新 .gitignore 第三方区块
 约定破了问题会立刻回来，所以把检查挂在提交上，而不是靠事后 `scan` 发现。`scripts/precommit.py` 装在 `.git/hooks/pre-commit`：
 
 - `check_consistency.py` 失败 → **拒绝**（README 与目录必须双向一致）
+- `lint_skills.py` 有 error → **拒绝**（frontmatter / description 80–600 字 / 正文引用断链 / BOM）
 - 报出**新增**链式 junction → **拒绝**（baseline 的 `intentional` 是设计上不共享的第三方技能，`chained` 是待修欠账、目标为空）
 - 真实副本数上涨 → 只**警告**（归集要人工判断，不该堵住提交）
 
@@ -92,6 +100,15 @@ git commit --no-verify                          # 临时跳过
 ## 已知坑位
 
 **Antigravity Windows 扫描机制**：Antigravity 底层在 Windows 下通过标准 `io/fs` 扫描，会跳过 `~/.gemini/config/skills/` 内部的二级 Junction 目录。因此 Antigravity 统一采用原生声明式配置 `~/.gemini/config/skills.json` 直接挂载主库真实路径，绕过子目录 Junction 限制。
+
+**`.gitignore` 区块只减不增**：早期按「目录存在但 git 未跟踪」自动判定第三方技能，结果把
+自己新建的技能也一起扫了进去——从此进不了 git，而且没有任何提示（实测 31 个被排除的目录里
+混着 8 个自建技能）。现在只保留已有条目、已跟踪的自动移出，新出现的一律不加，要排除得显式
+`gitignore --add <name>`。判定第三方不能只看「未跟踪」，那和「刚建的」无法区分。
+
+**断链判定不能用 `exists()`**：断链本身 `exists()` 就是 `False`，分不清「没有这个链接」和
+「链接坏了」。要用 `is_link()` + `link_target()` + 目标存在性判断，删除用 `os.rmdir()`
+（只摘重解析点，不递归、不碰目标）。
 
 **链式链接**：junction 指向另一个 agent 的目录（如 workbuddy→zcode→codex）会造成三层套娃，中间一层挪动全断。所有链接必须直接指向仓库。`doctor` 会把这类问题列出，但 baseline 里 `intentional` 的会标成「已豁免」且不计入问题数——它和提交闸门读同一份基线，两边不会给出相反结论。
 

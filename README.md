@@ -51,7 +51,7 @@
 
 ## 使用方式
 
-把 skill 文件夹复制到对应 agent 的 skills 目录即可使用。本机已改为目录联结（junction）方式，见下一节。
+把 skill 文件夹复制到对应 agent 的 skills 目录即可使用（本机改用目录联结，做法见「管理本仓库」一节）。
 
 - WorkBuddy：`~/.workbuddy/skills/`
 - Claude Code：`~/.claude/skills/`
@@ -77,23 +77,49 @@ my-skills/
 └── mcporter/              外部 · MCP 调度
 ```
 
-## 与本机各 agent 的技能目录保持同步
+## 管理本仓库
 
-本机各 agent 的 skills 目录通过 Windows 目录联结指向本仓库（Antigravity 通过 `skills.json` 原生直挂），**本仓库是唯一真相源**：直接编辑这里的文件，所有 agent 立即生效，不再需要任何同步命令。
+本仓库是**唯一真相源**：各 agent 的 skills 目录通过 Windows 目录联结指过来（Antigravity 走
+`~/.gemini/config/skills.json` 原生直挂）。直接编辑这里的文件，所有 agent 立即生效。
+以下命令都在仓库根目录执行。
+
+### 常用命令
 
 ```bash
-# 诊断（只读）
-python ~/.agents/skillsync.py status     # 每个 agent 每个技能的链接状态
-python ~/.agents/skillsync.py doctor     # 断链、链式嵌套等结构问题
-python ~/.agents/skillsync.py scan       # 多份副本的漂移报告
-
-# 在本仓库新增技能目录后，分发到各 agent
-python ~/.agents/skillsync.py link --apply
-
-# 提交前校验（CI 同款）
-python scripts/check_consistency.py
+python scripts/skillsync.py status          # 每个 agent 每个技能的链接状态矩阵
+python scripts/skillsync.py doctor          # 断链 / 链式嵌套 / 主库含链接；应为「问题数: 0」
+python scripts/skillsync.py scan            # 多副本漂移报告
+python scripts/skillsync.py prune           # 清理断链（默认 dry-run，加 --apply 才删）
+python scripts/lint_skills.py               # 技能规范检查（frontmatter / 描述长度 / 引用 / BOM）
+python scripts/check_consistency.py         # README 与技能目录双向一致
 ```
 
-本仓库是公开仓库，只收录自制技能。第三方技能（Wind/Kimi 官方、Academic pack、FBSir 等）由 skillsync 收编到本机、在 `.gitignore` 的 `skillsync` 标记区块中排除，随目录存在但不入库，也不参与 README 校验。
+### 三种改动的完整流程
 
-`scripts/sync_zcode_skills.py` 已废弃并内置拒绝执行的保护——旧逻辑是「先删除仓库目录、再从 agent 目录复制」，在 junction 布局下方向相反，会把仓库内容覆盖掉。
+| 做什么 | 动手 | 收尾（缺一步都算没做完） |
+|---|---|---|
+| **改**已有技能 | 直接编辑 | `lint_skills.py` 无 error |
+| **加**新技能 | 建 `<skill>/SKILL.md` + 在 README 加一行 | `link --apply` → `doctor` 回 0 |
+| **删**技能 | `git rm -r <skill>` + 从 README 删行 | `prune --apply` → `doctor` 回 0 |
+
+**`doctor` 不返回「问题数: 0」就不要说已完成。** 删技能尤其容易漏：主库删了目录，各 agent
+里那条 junction 变成指向空路径的空壳，不报错但行为不可预期。一次删 7 个技能会在 6 个 agent
+目录里留下 42 条断链。
+
+提交时 `.git/hooks/pre-commit` 会自动跑**一致性 + 技能规范 + 结构**三道闸门，有 error 直接拒绝。
+
+### 第三方技能
+
+本仓库是公开仓库，只收录自制技能。第三方技能（Wind/Kimi 官方、Academic pack、FBSir、
+fireworks-tech-graph 等）由 skillsync 收编到本机，在 `.gitignore` 的 `skillsync` 标记区块中排除——
+随目录存在但不入库，也不参与 README 校验。判定为第三方的不能只看「git 未跟踪」，那和「刚建的
+新技能」无法区分；区块现在**只减不增**，要排除新目录得显式 `skillsync.py gitignore --add <name>`。
+
+### 规范与约定
+
+技能怎么写、提交怎么署名、维护时该删什么，统一记在 [`AGENTS.md`](./AGENTS.md)——那是唯一权威源，
+改完跑 `python scripts/skillsync.py rules --apply` 分发到各 agent 的全局指令文件。
+细节展开见 [`agent-skills-sync`](./agent-skills-sync/) 技能。
+
+`scripts/sync_zcode_skills.py` 已废弃并内置拒绝执行的保护——旧逻辑是「先删除仓库目录、再从
+agent 目录复制」，在 junction 布局下方向相反，会把仓库内容覆盖掉。
