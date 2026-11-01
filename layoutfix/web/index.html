@@ -2061,7 +2061,8 @@ function renderLayers(){
       };
       const nm = document.createElement('span');
       nm.className = 'nm' + (selIds.includes(n.eid) ? ' sel' : '');
-      nm.textContent = n.eid + (n.kids && n.kids.length ? ' {' + n.kids.length + '}' : '');
+      nm.textContent = (n.gid ? n.gid + ' · ' : '') + n.eid +
+        (n.kids && n.kids.length ? ' {' + n.kids.length + '}' : '');
       nm.title = '点击选中；组合用 Ctrl+G，解组 Ctrl+U';
       nm.onclick = function(){ setSelection([n.eid]); };
       row.appendChild(eye); row.appendChild(nm);

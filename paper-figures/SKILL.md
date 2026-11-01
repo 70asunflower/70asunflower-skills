@@ -90,7 +90,17 @@ PyMuPDF 渲染 PDF 为 300 DPI 基准图 $\to$ PowerPoint COM 无头静默导出
 
 - `layoutfix.py check <图> --strict` —— 查字压图 / 文字被盖 / 超画布 / 箭头悬空 / 标签偏心，有 error 即退出码 7
 - `layoutfix.py tune <图>` —— 起本地界面，人拖一下即吸附对齐，位移落成毫米清单
+- `layoutfix.py layers <图>` —— **图层结构报告**：顶层对象数 / 嵌套深度 / 语义命名占比 / 文字是否被转成路径
 - 需要看图时**只截违例区域**：`check --json` 的 `region` 喂 `scripts/preview.py --clip`
+
+**SVG 生成端图层纪律**（交付可编辑 SVG 必守；违反则图层树数百行、人工无法编辑——真实案例：matplotlib 图 321 个图层）：
+
+1. `svg.fonttype='none'`（PDF 用 `pdf.fonttype=42`）——文字保持真 `<text>`，**禁 text-as-path**（matplotlib 默认恰是 path，必须显式覆盖，否则 check 对文字全盲、也无法就地编辑）
+2. **语义命名**：关键 artist `set_gid()`——`box-<名>` / `label-<名>` / `arrow-<名>`。matplotlib 默认给每个 artist 输出孤立 `<g id="text_69">`，数百图层就是这么来的
+3. **逻辑单元归组**：一个框及其全部标签/连线包进一个 `<g id="unit-xxx">`，顶层对象建议 ≤25
+4. 交付前 `layers` 自查——顶层过多 / 无语义命名 / text=0 当场报警
+
+**执行顺序**：程序能断言的问题不许花截图成本。
 
 **执行顺序**：程序能断言的问题不许花截图成本。
 
@@ -212,5 +222,5 @@ PyMuPDF 渲染 PDF 为 300 DPI 基准图 $\to$ PowerPoint COM 无头静默导出
 - 转换用 `DispatchEx`（独立进程），用户开着 PowerPoint 时**永不 Quit**、不附加其会话。
 - 用户对版式的手工调整优先级高于脚本；以用户文件为准，先问再覆盖。
 - 海报与视觉摘要任务**严禁仅交付图片或单向 PDF**，必须主动奉上可自由修改的 PPTX 源码并声明缩放比例。
-- **出图后自查五部曲**：① 图内文字是否 0 度水平？② 有无孤悬标点掉落行首？③ 色盲质检是否通过？④ 柱状图 Y 轴是否从 0 起始？⑤ **`layoutfix check` 是否 0 error**（字压图/文字被盖/超画布/箭头悬空/标签偏心）——需已安装 `layoutfix` 技能，没装就人工看一遍。
+- **出图后自查六部曲**：① 图内文字是否 0 度水平？② 有无孤悬标点掉落行首？③ 色盲质检是否通过？④ 柱状图 Y 轴是否从 0 起始？⑤ **`layoutfix check` 是否 0 error**（字压图/文字被盖/超画布/箭头悬空/标签偏心）？⑥ **`layoutfix layers` 图层纪律**（SVG 交付时：顶层 ≤25、关键元素带语义 id、文字非 path）——需已安装 `layoutfix` 技能，没装就人工看一遍。
 - **示意图交付前必须过 `layoutfix check --strict`**（若已安装该技能）；报出违例时先修再交，不要把带压字的图给用户。

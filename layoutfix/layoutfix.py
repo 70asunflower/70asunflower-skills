@@ -159,6 +159,40 @@ def cmd_replay(a) -> int:
     return 0
 
 
+def cmd_layers(a) -> int:
+    """图层结构报告：给「生成端」自查用——组太多/太深/没名字，图层树就没法读。"""
+    fig = Path(a.file)
+    raw = edit.read_raw(fig)
+    tree = edit.tree_view(raw)
+
+    stats = {"top": len(tree), "nodes": 0, "depth": 0, "gid": 0}
+    def walk(nodes, d):
+        stats["depth"] = max(stats["depth"], d)
+        for n in nodes:
+            stats["nodes"] += 1
+            if n.get("gid"):
+                stats["gid"] += 1
+            walk(n.get("kids") or [], d + 1)
+    walk(tree, 1)
+
+    texts = raw.count("<text")
+    paths = raw.count("<path")
+    print(f"{fig.name}  图层结构报告")
+    print(f"  顶层对象 {stats['top']} · 节点总数 {stats['nodes']} · 最大嵌套 {stats['depth']} 层")
+    print(f"  语义命名(id) {stats['gid']}/{stats['nodes']} · <text> {texts} · <path> {paths}")
+    top_named = sum(1 for n in tree if n.get("gid"))
+    print(f"  顶层有名字 {top_named}/{stats['top']}")
+    if texts == 0 and paths > 20:
+        print("  ⚠ 文字已转路径（0 个 <text>）——check 对文字全盲、也无法就地编辑；")
+        print("    matplotlib 生成请设 svg.fonttype='none'（PDF 用 pdf.fonttype=42）")
+    if stats["gid"] == 0 and stats["nodes"] > 40:
+        print("  ⚠ 全部节点无语义 id——图层树只能显示 text:N。生成端建议给关键")
+        print("    artist set_gid('box-xxx' / 'label-xxx' / 'arrow-xxx')，逻辑单元同名前缀")
+    if stats["top"] > 25:
+        print(f"  ⚠ 顶层对象 {stats['top']} 个偏多——按逻辑单元归组（一盒/一组）后再交付")
+    return 0
+
+
 def cmd_ls(a) -> int:
     fig = Path(a.file)
     # 必须按字节读：read_text 在 Windows 会把 \r\n 折成 \n，
@@ -210,6 +244,10 @@ def main(argv=None) -> int:
     p = sub.add_parser("ls", help="列出可拖元素")
     p.add_argument("file")
     p.set_defaults(fn=cmd_ls)
+
+    p = sub.add_parser("layers", help="图层结构报告（生成端自查）")
+    p.add_argument("file")
+    p.set_defaults(fn=cmd_layers)
 
     p = sub.add_parser("replay", help="把旧清单的人工调整套到重新生成的图上")
     p.add_argument("file", help="重新生成的新图")

@@ -371,6 +371,9 @@ def _build_tree(raw: str) -> dict:
         node = {"name": t["name"], "start": t["start"], "end": None,
                 "children": [], "eid": None,
                 "path": f'{stack[-1]["path"]}.{len(stack[-1]["children"])}'.lstrip(".")}
+        gid = _attr(t["text"], "id")
+        if gid:
+            node["gid"] = gid
         if t["name"] in MOVABLE:
             n = counters.get(t["name"], 0)
             counters[t["name"]] = n + 1
@@ -1074,6 +1077,8 @@ def tree_view(raw: str) -> list[dict]:
                 out.extend(walk(c))
             else:
                 out.append({"eid": c["eid"], "tag": c["name"],
+                            "gid": c.get("gid"),
+                            "hidden": bool(c.get("hidden")),
                             "kids": walk(c)})
         return out
 

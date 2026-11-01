@@ -37,6 +37,7 @@ $PY layoutfix.py nudge  fig.svg --id text:4 --dy -4 --expect "DOUT/DIN"   # 带�
 $PY layoutfix.py ops    fig.svg              # 看已落地的改动清单
 $PY layoutfix.py clean  fig.svg              # 清理清单：剔零位移、合并同元素碎片
 $PY layoutfix.py ls     fig.svg              # 列出可拖元素
+$PY layoutfix.py layers fig.svg              # 图层结构报告（生成端自查）
 ```
 
 依赖：Python 3.10+ 与 `pymupdf`。零前端依赖、无构建步骤。
