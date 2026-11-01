@@ -14,6 +14,7 @@ import json
 import mimetypes
 import os
 import threading
+import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
@@ -78,10 +79,14 @@ fr.onload = async () => {
     await sleep(900);
     const el2 = D.querySelector('[data-ffid="text:4"]');
     const spans = el2 ? el2.querySelectorAll('tspan') : [];
-    const joined = spans.length ? Array.from(spans).map(t=>t.textContent).join('') : '';
+    // 内容保持 = 去掉全部空白后逐字一致（断行吃掉的只有空格/行界，不该丢字）
+    const squish = s => (s || '').replace(/\s+/g, '');
+    const before = squish(el.textContent);
+    const joined = spans.length ? squish(Array.from(spans).map(t=>t.textContent).join(''))
+                                : squish(el2 ? el2.textContent : '');
     say('拖角收窄 → 折行 ' + spans.length + ' 行，内容保持 ' +
-        (joined.indexOf('DOUT/DIN') >= 0),
-        spans.length >= 2 && joined.indexOf('DOUT/DIN') >= 0);
+        (joined === before),
+        spans.length >= 2 && joined === before);
     await fetch('/undo', {method:'POST'});
     await sleep(300);
     const raw2 = await fig();
@@ -254,7 +259,8 @@ def state_of(fig: Path) -> dict:
     }
 
 
-def serve(fig: Path, port: int = 8770, open_browser: bool = True) -> None:
+def serve(fig: Path, port: int = 8770, open_browser: bool = True,
+          idle_minutes: float = 0.0) -> None:
     fig = fig.resolve()
     if not fig.exists():
         raise SystemExit(f"文件不存在: {fig}")
@@ -266,6 +272,8 @@ def serve(fig: Path, port: int = 8770, open_browser: bool = True) -> None:
         return redo_stacks.setdefault(os.path.normcase(str(f)), [])
     def get_fig() -> Path:
         return cur["fig"]
+    # 心跳时间戳：页面开着就每 15s 打一次 /ping；空闲超时的判断依据
+    seen = {"t": time.time()}
 
     class H(BaseHTTPRequestHandler):
         def log_message(self, *a):
@@ -281,6 +289,7 @@ def serve(fig: Path, port: int = 8770, open_browser: bool = True) -> None:
             self.wfile.write(body)
 
         def do_GET(self):
+            seen["t"] = time.time()
             # 必须剥掉查询串：/?z=0.5 与 / 是同一个页面，
             # 直接比 self.path 会把它当成 404。
             parsed = urlparse(self.path)
@@ -312,6 +321,14 @@ def serve(fig: Path, port: int = 8770, open_browser: bool = True) -> None:
                     with lock:
                         st = state_of(get_fig())
                     self._send(json.dumps(st, ensure_ascii=False).encode("utf-8"))
+                elif path == "/ping":
+                    # 心跳：页面开着每 15s 打一次。空闲自关的依据就是它——
+                    # 关标签页后心跳停止，到点服务自行退出；刷新/导航不受影响
+                    self._send(json.dumps({
+                        "ok": True,
+                        "idle_left_min": round(max(0.0, idle_minutes * 60
+                            - (time.time() - seen["t"])) / 60, 1),
+                    }).encode("utf-8"))
                 elif path == "/selftest":
                     self._send(SELFTEST.encode("utf-8"), "text/html; charset=utf-8")
                 else:
@@ -324,7 +341,13 @@ def serve(fig: Path, port: int = 8770, open_browser: bool = True) -> None:
                            code=500)
 
         def do_POST(self):
+            seen["t"] = time.time()
             path = urlparse(self.path).path
+            if path == "/shutdown":
+                # 显式关闭：先把响应送出去，再让服务退出（否则响应到不了浏览器）
+                self._send(b'{"ok":true}')
+                threading.Timer(0.3, srv.shutdown).start()
+                return
             if path == "/redo":
                 try:
                     with lock:
@@ -428,9 +451,20 @@ def serve(fig: Path, port: int = 8770, open_browser: bool = True) -> None:
     print(f"layoutfix tune → {url}")
     print(f"  文件: {fig}")
     print(f"  清单: {edit.log_path(fig)}")
+    if idle_minutes > 0:
+        print(f"  空闲 {idle_minutes:g} 分钟自动关闭（页面开着就不会关）")
     print("  Ctrl+C 结束")
     if open_browser:
         threading.Timer(0.6, lambda: webbrowser.open(url)).start()
+    if idle_minutes > 0:
+        def _watchdog():
+            while True:
+                time.sleep(5)
+                if time.time() - seen["t"] > idle_minutes * 60:
+                    print(f"\n[layoutfix] 空闲 {idle_minutes:g} 分钟无人访问，服务自动关闭")
+                    srv.shutdown()
+                    return
+        threading.Thread(target=_watchdog, daemon=True).start()
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

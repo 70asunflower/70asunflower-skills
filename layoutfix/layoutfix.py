@@ -29,7 +29,8 @@ def cmd_check(a) -> int:
 
 def cmd_tune(a) -> int:
     import tune
-    tune.serve(Path(a.file), port=a.port, open_browser=not a.no_browser)
+    tune.serve(Path(a.file), port=a.port, open_browser=not a.no_browser,
+               idle_minutes=a.idle_exit)
     return 0
 
 
@@ -101,6 +102,8 @@ def main(argv=None) -> int:
     p.add_argument("file")
     p.add_argument("--port", type=int, default=8770)
     p.add_argument("--no-browser", action="store_true")
+    p.add_argument("--idle-exit", type=float, default=0.0, dest="idle_exit",
+                   help="空闲 N 分钟自动关闭服务（0=不自动）；页面开着即不算空闲")
     p.set_defaults(fn=cmd_tune)
 
     p = sub.add_parser("nudge", help="命令行微调一个元素")

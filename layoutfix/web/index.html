@@ -249,6 +249,8 @@
   /* 拖动/缩放期间全局换成抓取光标：SVG 内部元素各有自己的 cursor，
      不加全局覆盖的话拖起来光标会在 move/箭头之间闪 */
   body.grabbing, body.grabbing *{cursor:grabbing !important}
+  #t-shutdown{color:var(--mute)}
+  #t-shutdown:hover{color:var(--err); border-color:var(--err)}
 </style>
 </head>
 <body>
@@ -278,6 +280,7 @@
   <button id="t-invert" title="暗色下把图反相显示，只影响预览、不改文件">反相</button>
   <div class="vsep"></div>
   <select id="filesel" title="切换同目录下的其他图（svg）"></select>
+  <button id="t-shutdown" title="关闭编辑器服务。所有改动都已实时写入图文件，不会丢失；撤销历史会清空">关闭服务</button>
   <div id="title"></div>
 </div>
 
@@ -1440,6 +1443,20 @@ async function refresh(){
   selEl.value = String(state.file || '').split(/[\\/]+/).pop();
   selEl.onchange = function(){
     location.href = '/?file=' + encodeURIComponent(this.value) + '&z=' + zoom.toFixed(2);
+  };
+  // 心跳：页面开着每 15s 报一次到。服务端靠它做「空闲自关」——
+  // 关标签页后心跳停止，到点服务自行退出；刷新/切走再回来都算活跃。
+  setInterval(function(){
+    fetch('/ping', {keepalive: true}).catch(function(){});
+  }, 15000);
+  document.getElementById('t-shutdown').onclick = function(){
+    if(!confirm('关闭编辑器服务？\n所有改动都已实时写入图文件，不会丢失；撤销历史会清空。')) return;
+    fetch('/shutdown', {method: 'POST'}).catch(function(){});
+    document.title = 'layoutfix（已关闭）';
+    document.body.innerHTML =
+      '<div style="display:flex;height:100vh;align-items:center;justify-content:center;' +
+      'font:14px/2 sans-serif;color:#888;text-align:center">编辑器服务已关闭。<br>' +
+      '所有改动都已写入图文件。重新打开：双击图目录里的「启动图面编辑器.py」。</div>';
   };
   // 恢复选中：多选集合里已消失的元素剔除，其余按 eid 找回（跨 refresh 保持）
   if(selIds.length){
