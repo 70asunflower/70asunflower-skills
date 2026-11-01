@@ -91,6 +91,9 @@ python scripts/refresh_rf.py                       # ⑥ 无风险利率（FRED�
 - 无 `core._fred_10y()` / `core.monitoring_list()`；用 `core.risk_free_10y_pct()` / 直接读 monitoring.json。
 - 归档公司：`archive/companies/<T>_<date>` + watchlist 该行 status=ARCHIVED。
 
+### e. 每次触碰例行（被动维护，2026-10-31 用户指示「用户只看不操作」）
+开场先跑：① `daily_brief.py` + `check_integrity.py`（超期/到期/红旗）；② gate 到期即裁决——能验证的 `verify`（带来源），数据不可得的 horizon 后 `expire`（附诚实 note，勿强行 TRUE/FALSE）；③ 数据陈旧即刷新（行情>1 天、档案>7 天先刷，`runs/staleness_*.py` 扫描）；④ 触发线触发即归因调查；⑤ `gen_archive_reports.py` + sync 集成。自主域=研究/裁决/报告/评级建议；买卖处置永远等用户拍板。
+
 ## 6. 数据源分工与口径陷阱（速查，全量见 MEMORY.md）
 
 | 来源 | 负责 |
