@@ -145,11 +145,40 @@ def check_skill(d: pathlib.Path) -> tuple[list[str], list[str]]:
     return errs, warns
 
 
+def third_party_from_gitignore() -> set[str]:
+    """从 .gitignore 的 skillsync 标记区块解析第三方技能目录（git 不在 PATH 时的后备）。"""
+    out, inside = set(), False
+    gi = HUB / ".gitignore"
+    if not gi.exists():
+        return out
+    for line in gi.read_text(encoding="utf-8", errors="replace").splitlines():
+        s = line.strip()
+        if s.startswith("# >>> skillsync"):
+            inside = True
+            continue
+        if inside and s.startswith("# <<< skillsync"):
+            inside = False
+            continue
+        if inside and s and not s.startswith("#"):
+            out.add(s.rstrip("/"))
+    return out
+
+
+def git_available() -> bool:
+    try:
+        subprocess.run(["git", "--version"], capture_output=True, timeout=15)
+        return True
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
 def own_skills() -> set[str]:
     """自建技能目录名 = 已跟踪的 + 新建未跟踪但未被 gitignore 的。
 
     只取 tracked 的话，新建的技能在 git add 之前会被跳过——等于提交前查不到，
     提交后才发现不合规。第三方技能在 .gitignore 里，两个来源都不会带进来。
+    git 不在 PATH 时（如从非 git 环境手工跑 lint）退回解析 .gitignore 区块，
+    否则返回空集会让调用方跳过过滤，把第三方也按本仓规范查出一堆噪音 error。
     """
     def names(args):
         try:
@@ -159,6 +188,9 @@ def own_skills() -> set[str]:
         except (OSError, subprocess.SubprocessError):
             return set()
 
+    if not git_available():
+        return {d.name for d in HUB.iterdir()
+                if d.is_dir() and not d.name.startswith(".")} - third_party_from_gitignore()
     return names(["ls-files"]) | names(["ls-files", "--others", "--exclude-standard"])
 
 
