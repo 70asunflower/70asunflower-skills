@@ -33,33 +33,33 @@
   ::-webkit-scrollbar-corner{background:transparent}
   html,body{margin:0;height:100%}
   body{
-    font:11px/1.45 "Segoe UI","Noto Sans SC","Microsoft YaHei UI",sans-serif;
+    font:12.5px/1.45 "Segoe UI","Noto Sans SC","Microsoft YaHei UI",sans-serif;
     background:var(--bg); color:var(--ink);
-    display:grid; grid-template-rows:34px 1fr 26px;
-    /* 窄窗口下侧栏按比例收缩，否则 296px 会把画布压到只剩一半 */
-    grid-template-columns:1fr clamp(236px, 26vw, 296px);
+    display:grid; grid-template-rows:40px 1fr 30px;
+    /* 窄窗口下侧栏按比例收缩，否则 330px 会把画布压到只剩一半 */
+    grid-template-columns:1fr clamp(262px, 28vw, 330px);
     grid-template-areas:"bar bar" "stage side" "status status";
     height:100vh; overflow:hidden;
   }
 
   #topbar{
     grid-area:bar; display:flex; align-items:center; gap:2px;
-    padding:0 8px; background:var(--panel); border-bottom:1px solid var(--line2);
+    padding:0 10px; background:var(--panel); border-bottom:1px solid var(--line2);
   }
   .grp{display:flex; align-items:center; gap:1px}
-  .vsep{width:1px; height:18px; background:var(--line2); margin:0 7px}
+  .vsep{width:1px; height:20px; background:var(--line2); margin:0 8px}
   button{
-    font:inherit; font-size:11px; color:var(--ink); background:transparent;
-    border:1px solid transparent; border-radius:3px; padding:3px 7px;
+    font:inherit; font-size:12.5px; color:var(--ink); background:transparent;
+    border:1px solid transparent; border-radius:3px; padding:4px 9px;
     cursor:pointer; line-height:1.3; white-space:nowrap;
   }
   button:hover{background:var(--hover); border-color:var(--line)}
   button.on{background:var(--on); border-color:var(--onb)}
   button:active{background:var(--hover)}
   #topbar .num{
-    font-family:"Cascadia Mono",Consolas,monospace; font-size:11px;
+    font-family:"Cascadia Mono",Consolas,monospace; font-size:12.5px;
     background:var(--field); border:1px solid var(--line2); border-radius:3px;
-    padding:2px 4px; width:44px; text-align:center; color:var(--ink);
+    padding:3px 5px; width:52px; text-align:center; color:var(--ink);
   }
   .lbl{color:var(--mute); padding:0 4px 0 2px}
   .seg{display:inline-flex}
@@ -69,16 +69,16 @@
   button[disabled]{color:var(--mute); opacity:.4; cursor:default;
                    background:transparent; border-color:transparent}
   #zoomv{
-    font-family:"Cascadia Mono",Consolas,monospace; min-width:42px;
+    font-family:"Cascadia Mono",Consolas,monospace; min-width:48px;
     text-align:center; color:var(--mute);
   }
   #filesel{
-    font:inherit; font-size:11px; color:var(--ink);
+    font:inherit; font-size:12.5px; color:var(--ink);
     background:var(--field); border:1px solid var(--line2); border-radius:3px;
-    padding:2px 3px; max-width:170px;
+    padding:3px 4px; max-width:190px;
   }
   #title{
-    flex:1; min-width:0; margin-left:12px; color:var(--mute); font-size:11px;
+    flex:1; min-width:0; margin-left:12px; color:var(--mute); font-size:12.5px;
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:right;
     padding-right:4px;
   }
@@ -97,6 +97,14 @@
     box-shadow:0 1px 4px rgba(0,0,0,.08);
     width:100%; max-width:1180px; line-height:0;
   }
+  /* SVG 背景透明时（matplotlib 常态）画板不再垫白假装——棋盘格如实告知，
+     这是图像编辑器的通行做法。有白底 rect 的图不受影响。 */
+  #canvas.no-bg{
+    background:repeating-conic-gradient(#e2e0da 0 25%, #f9f9f7 0 50%) 0 0/18px 18px;
+  }
+  html[data-theme="dark"] #canvas.no-bg{
+    background:repeating-conic-gradient(#151514 0 25%, #282826 0 50%) 0 0/18px 18px;
+  }
   #canvas svg{display:block; width:100%; height:auto}
   html.invert #canvas svg{filter:invert(1) hue-rotate(180deg)}
   #canvas svg [data-ffid]{cursor:move}
@@ -110,10 +118,10 @@
   #statusbar{
     grid-area:status; display:flex; align-items:center; gap:0;
     background:var(--panel); border-top:1px solid var(--line2);
-    font-family:"Cascadia Mono",Consolas,monospace; font-size:11px;
+    font-family:"Cascadia Mono",Consolas,monospace; font-size:12.5px;
     color:var(--mute); overflow:hidden;
   }
-  #statusbar span{padding:0 10px; border-right:1px solid var(--line)}
+  #statusbar span{padding:0 12px; border-right:1px solid var(--line)}
   #statusbar b{color:var(--ink); font-weight:500}
   #statusbar .grow{flex:1; border-right:0}
   #st-snap.hot{color:var(--snap)}
@@ -125,15 +133,15 @@
   }
   .sec{border-bottom:1px solid var(--line); display:flex; flex-direction:column; min-height:0}
   .sec > h2{
-    margin:0; padding:6px 10px; font-size:11px; font-weight:500;
+    margin:0; padding:8px 12px; font-size:12.5px; font-weight:500;
     color:var(--mute); background:var(--head); border-bottom:1px solid var(--line);
     display:flex; justify-content:space-between; align-items:center;
   }
   .sec > h2 .cnt{font-family:ui-monospace,monospace; color:var(--ink)}
   #viol{list-style:none; margin:0; padding:0; overflow:auto; max-height:46vh}
   #viol li{
-    padding:5px 10px; border-bottom:1px solid var(--rule); cursor:pointer;
-    display:flex; gap:6px; align-items:flex-start;
+    padding:7px 12px; border-bottom:1px solid var(--rule); cursor:pointer;
+    display:flex; gap:7px; align-items:flex-start;
   }
   #viol li:hover{background:var(--hover2)}
   #viol .sev{flex:none; width:3px; align-self:stretch; border-radius:1px; margin-top:1px}
@@ -141,12 +149,12 @@
   #viol li.warn .sev{background:var(--warn)}
   #viol .body{min-width:0}
   #viol .cat{
-    font-size:10px; color:var(--mute); letter-spacing:.02em;
+    font-size:11.5px; color:var(--mute); letter-spacing:.02em;
     display:flex; gap:6px; align-items:baseline;
   }
 
-  #viol .msg{font-size:11px; line-height:1.4; word-break:break-word}
-  #viol .empty{padding:9px 10px; color:var(--ok)}
+  #viol .msg{font-size:12.5px; line-height:1.45; word-break:break-word}
+  #viol .empty{padding:11px 12px; color:var(--ok); font-size:12.5px}
 
   #props h2 .cnt{margin-left:4px}
   #props .hintid{
@@ -155,18 +163,18 @@
     text-align:right;
   }
   #props .rows{display:grid; grid-template-columns:auto 1fr;
-                gap:5px 8px; padding:8px 10px; align-items:center}
+                gap:7px 10px; padding:10px 12px; align-items:center}
   #props label{color:var(--mute); white-space:nowrap}
   #props .num{
-    width:100%; font-family:"Cascadia Mono",Consolas,monospace; font-size:11px;
+    width:100%; font-family:"Cascadia Mono",Consolas,monospace; font-size:12.5px;
     background:var(--field); color:var(--ink); border:1px solid var(--line2);
-    border-radius:3px; padding:2px 4px; text-align:right;
+    border-radius:3px; padding:3px 6px; text-align:right;
   }
   #props textarea{
-    width:100%; min-height:46px; resize:vertical;
-    font:11px/1.6 "Segoe UI","Noto Sans SC","Microsoft YaHei UI",sans-serif;
+    width:100%; min-height:56px; resize:vertical;
+    font:12.5px/1.6 "Segoe UI","Noto Sans SC","Microsoft YaHei UI",sans-serif;
     background:var(--field); color:var(--ink);
-    border:1px solid var(--line2); border-radius:3px; padding:3px 5px;
+    border:1px solid var(--line2); border-radius:3px; padding:4px 6px;
   }
   #props textarea:focus{outline:1px solid var(--sel)}
   /* 图内就地编辑浮层：盖在文字原位上，字号/颜色/对齐都跟着原图走 */
@@ -177,51 +185,51 @@
     line-height:1.35; box-shadow:0 2px 10px rgba(0,0,0,.3);
   }
   #ff-editor:focus{outline:none}
-  #props .btnrow{display:flex; align-items:center; gap:3px;
-                 padding:0 10px 8px; flex-wrap:wrap}
+  #props .btnrow{display:flex; align-items:center; gap:4px;
+                 padding:0 12px 10px; flex-wrap:wrap}
   #props .btnrow .lbl{color:var(--mute); margin-right:2px}
-  #props button.mini{padding:2px 6px; font-size:11px;
+  #props button.mini{padding:3px 8px; font-size:12px;
                      border:1px solid var(--line2); border-radius:3px}
   #props button.mini.on{background:var(--on); border-color:var(--onb)}
   #ops{overflow:auto; max-height:22vh; padding:2px 0}
   #ops .op{
-    display:flex; gap:8px; align-items:baseline; padding:3px 10px;
+    display:flex; gap:8px; align-items:baseline; padding:5px 12px;
     cursor:pointer; border-bottom:1px solid var(--rule);
   }
   #ops .op:last-child{border-bottom:0}
   #ops .op:hover{background:var(--hover2)}
   #ops .op .id{
-    font-family:"Cascadia Mono",Consolas,monospace; font-size:10px;
-    color:var(--mute); flex:none; max-width:96px; overflow:hidden;
+    font-family:"Cascadia Mono",Consolas,monospace; font-size:11px;
+    color:var(--mute); flex:none; max-width:104px; overflow:hidden;
     text-overflow:ellipsis; white-space:nowrap;
   }
   #ops .op .v{
-    font-family:"Cascadia Mono",Consolas,monospace; font-size:10px;
+    font-family:"Cascadia Mono",Consolas,monospace; font-size:11px;
     color:var(--ink); margin-left:auto; text-align:right;
   }
-  #ops .empty{padding:8px 10px; color:var(--mute); line-height:1.5}
+  #ops .empty{padding:10px 12px; color:var(--mute); line-height:1.5}
   .hint{
-    margin-top:auto; padding:7px 10px; color:var(--mute); font-size:10px;
-    line-height:1.7; border-top:1px solid var(--line);
+    margin-top:auto; padding:9px 12px; color:var(--mute); font-size:11.5px;
+    line-height:1.8; border-top:1px solid var(--line);
   }
   .hint kbd{
-    font-family:ui-monospace,monospace; font-size:10px; color:var(--ink);
+    font-family:ui-monospace,monospace; font-size:11px; color:var(--ink);
     background:var(--kbd); border:1px solid var(--line2); border-radius:2px;
     padding:0 3px;
   }
   #toast{
-    position:fixed; left:50%; bottom:38px; transform:translateX(-50%);
-    background:var(--ink); color:var(--panel); padding:5px 12px; border-radius:3px;
-    font-size:11px; font-family:ui-monospace,monospace;
+    position:fixed; left:50%; bottom:42px; transform:translateX(-50%);
+    background:var(--ink); color:var(--panel); padding:6px 14px; border-radius:3px;
+    font-size:12.5px; font-family:ui-monospace,monospace;
     opacity:0; transition:opacity .15s; pointer-events:none; z-index:9;
   }
   #toast.show{opacity:.94}
 
   /* 违例分级徽标：数字按级别着色，点击切换过滤（不是装饰，是过滤入口） */
   .bdg{
-    font-family:"Cascadia Mono",Consolas,monospace; font-size:10px; line-height:1;
+    font-family:"Cascadia Mono",Consolas,monospace; font-size:11px; line-height:1;
     color:var(--mute); background:transparent;
-    border:1px solid var(--line2); border-radius:8px; padding:2px 6px;
+    border:1px solid var(--line2); border-radius:8px; padding:3px 7px;
     cursor:pointer; pointer-events:auto;
   }
   .bdg.e{color:var(--err); border-color:var(--err)}
@@ -524,7 +532,7 @@ function clearGuides(){
 /* ---------- 缩放 ---------- */
 function baseWidth(){
   // 画板的「100%」宽度：可用宽度与 1180 取小
-  return Math.max(200, Math.min(stage.clientWidth - 44, 1180));
+  return Math.max(200, Math.min(stage.clientWidth - 48, 1180));
 }
 function applyZoom(){
   const s = svgEl();
@@ -548,8 +556,8 @@ function fitZoom(){
   const s = svgEl();
   const vb = s && s.viewBox.baseVal;
   if(!vb || !vb.width) return 1;
-  const availW = Math.max(200, stage.clientWidth - 44);
-  const availH = Math.max(120, stage.clientHeight - 44);
+  const availW = Math.max(200, stage.clientWidth - 48);
+  const availH = Math.max(120, stage.clientHeight - 48);
   const w1 = baseWidth();
   const h1 = w1 * vb.height / vb.width;
   return Math.min(1, availW / w1, availH / h1);
@@ -597,6 +605,34 @@ function select(el){
 
 /* ---------- 属性面板 ---------- */
 function isText(el){ return el.tagName.toLowerCase() === 'text'; }
+
+/* 画板要不要垫棋盘格：SVG 自带不透明背景（matplotlib 白底 rect、根元素
+   background-color）就照常垫白/垫暗；透明的话如实显示棋盘格——
+   matplotlib 图的 SVG 十有八九是透明的，垫白会让人误以为图自带白底。
+   注意 clipPath/defs 里的矩形不是背景，且无 fill 的形状默认黑，
+   两者都要排除。 */
+function updateArtboard(){
+  const s = svgEl();
+  let opaque = false;
+  if(s){
+    const vb = s.viewBox.baseVal;
+    const rootBg = getComputedStyle(s).backgroundColor;
+    if(rootBg && rootBg !== 'rgba(0, 0, 0, 0)') opaque = true;
+    if(!opaque){
+      s.querySelectorAll('rect').forEach(function(r){
+        if(opaque || r.closest('clipPath, defs, mask, pattern')) return;
+        const w = parseFloat(r.getAttribute('width')), h = parseFloat(r.getAttribute('height'));
+        if(!(w > 0) || !(h > 0)) return;
+        const st = getComputedStyle(r);
+        if(st.display === 'none' || st.visibility === 'hidden') return;
+        if(r.getAttribute('fill') === null && !r.style.fill) return;   // 默认黑不是背景
+        if(w >= vb.width * 0.98 && h >= vb.height * 0.98
+           && st.fill !== 'none' && parseFloat(st.fillOpacity) > 0.5) opaque = true;
+      });
+    }
+  }
+  canvas.classList.toggle('no-bg', !opaque);
+}
 
 function textLines(el){
   const spans = el.querySelectorAll('tspan');
@@ -1250,6 +1286,7 @@ async function refresh(){
   state.unit_mm = state.unit_mm || UNIT_MM;
   applyZoom();
   drawGrid();
+  updateArtboard();
   renderViolations();
   renderOps();
   // 完整路径能长到几百像素，顶栏放不下也没人看；只留末两级，全路径进 title
