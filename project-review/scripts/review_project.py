@@ -44,7 +44,7 @@ except Exception:
     pass
 
 VERSION = "2.0.0"
-SPEC_BASE = "project-init AGENTS.md v1.2.0"
+SPEC_BASE = "project-init AGENTS.md v2.0.0"
 
 DIMS = {
     "A": ("文档完整性", 25), "B": ("命名与存放", 15), "C": ("修改留痕", 20),
@@ -52,7 +52,7 @@ DIMS = {
 }
 
 ALLOWED_ROOT = {
-    "docs", "code", "tmp", ".git", ".cursor", ".github", ".vscode",
+    "docs", "code", "tmp", "memory", ".git", ".cursor", ".github", ".vscode",
     "AGENTS.md", "CLAUDE.md", "GEMINI.md", "QWEN.md", "README.md", "README",
     ".gitignore", ".gitattributes", ".windsurfrules", ".clinerules", ".mcp.json",
     "LICENSE", "pyproject.toml", "setup.py", "setup.cfg", "requirements.txt",
@@ -289,7 +289,7 @@ def check_docs_quality(root: Path) -> None:
 
 def scan_logs(root: Path) -> None:
     docs = root / "docs"
-    if not docs.is_dir():
+    if not docs.is_dir() or not per_file_logs(root):
         return
     for f in iter_entries(docs):
         if f.name.startswith(".") or in_releases(f, root):
@@ -581,14 +581,57 @@ audit_git.stats = {}
 
 # ---------- 结构基线 ----------
 
-def check_structure(root: Path) -> None:
-    for d in ("docs", "code", "tmp"):
-        if not (root / d).is_dir():
-            add("E", "A", "缺规范目录", d + "/", "项目未按规范建立该目录（可能未初始化）", 15)
-    for entry in sorted(root.iterdir()):
-        if entry.name in ALLOWED_ROOT or entry.name.startswith("."):
+def agents_field(root: Path, key: str) -> str:
+    p = root / "AGENTS.md"
+    if not p.exists():
+        return ""
+    m = re.search(rf"^-\s*{key}[：:]\s*(.+)$", read_text(p), re.M)
+    return m.group(1).strip() if m else ""
+
+
+def per_file_logs(root: Path) -> bool:
+    """日志模式为「逐文件」才查同名 .log.md；1.x 老规范无该字段，按逐文件处理。"""
+    return agents_field(root, "日志模式") in ("", "逐文件")
+
+
+def declared_structure(root: Path) -> list[tuple[str, str, str]] | None:
+    """读 AGENTS.md 结构表；无该区块（1.x 老规范）返回 None。"""
+    p = root / "AGENTS.md"
+    if not p.exists():
+        return None
+    m = re.search(r"<!--\s*structure:begin\s*-->(.*?)<!--\s*structure:end\s*-->", read_text(p), re.S)
+    if not m:
+        return None
+    rows: list[tuple[str, str, str]] = []
+    for line in m.group(1).splitlines():
+        s = line.strip()
+        if not s.startswith("|"):
             continue
-        add("W", "B", "根目录散落文件", entry.name, "应移入 docs/、code/ 或 tmp/", 3)
+        cells = [c.strip() for c in s.strip("|").split("|")]
+        if len(cells) < 3 or all(re.fullmatch(r":?-{2,}:?", c) for c in cells):
+            continue
+        path = cells[0].strip("`").strip()
+        if path and path not in ("路径", "位置"):
+            rows.append((path, cells[1], cells[2]))
+    return rows
+
+
+def check_structure(root: Path) -> None:
+    rows = declared_structure(root)
+    if rows is None:  # 1.x 老规范：按经典三目录兜底
+        for d in ("docs", "code", "tmp"):
+            if not (root / d).is_dir():
+                add("E", "A", "缺规范目录", d + "/", "项目未按规范建立该目录（可能未初始化）", 15)
+        declared: set[str] = {"docs", "code", "tmp", "memory"}
+    else:
+        declared = {p.rstrip("/") for p, _, _ in rows}
+        for p, _, _ in rows:
+            if p.endswith("/") and not (root / p.rstrip("/")).is_dir():
+                add("W", "B", "目录缺失", p, "AGENTS.md 结构表声明了该目录，但实际不存在", 3)
+    for entry in sorted(root.iterdir()):
+        if entry.name in ALLOWED_ROOT or entry.name in declared or entry.name.startswith("."):
+            continue
+        add("W", "B", "根目录散落文件", entry.name, "不在结构表里：移入已声明目录，或在结构表登记它的职责", 3)
 
 
 # ---------- 评分与报告 ----------

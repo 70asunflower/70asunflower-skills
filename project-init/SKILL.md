@@ -1,94 +1,111 @@
 ---
 name: project-init
-description: 项目初始化/接管/升级与 Agent 行为规范生成器 + 巡检修复器。init：git 初始化 + 规范目录（docs 正式文档、code 正式代码与测试、tmp 临时区）+ AGENTS.md 唯一规范来源 + 7 个 agent 入口（Claude/Gemini/Qwen/Cursor/Windsurf/Cline/Copilot）+ 程序项目脚手架（PRD/Design/TDD/开发进度台账、features 功能文档、README、assets）。adopt：接管已有散乱项目，输出迁移建议、可执行。upgrade：规范模板升级 diff。check：只读巡检（AI 痕迹、版本副本、日志、台账与功能文档状态一致性、顶层文档齐全性等）+ --fix 无争议自动修复 + --scan 批量巡检。当用户说"项目初始化、建个新项目、规范 agent 行为、生成 AGENTS.md、开发流程规范、命名规范、开发进度、功能测试、接管旧项目、整理项目、规范升级、检查项目规范、批量巡检、有没有 AI 痕迹、项目是不是乱了"等时使用，即使没明说"初始化"；agent 自己进入已初始化项目收工前也应触发自检。
+description: 项目底线与规范生成器。只立四条不可协商的底线——git 管理、AGENTS.md 唯一规范来源、memory/ 项目记忆与当日日志（每条必须带模型 id）、正式产出无 AI 痕迹；其余全部交给项目自己声明。结构不搞一刀切：minimal / docs / software 三种预设，或用 --dirs 自定义目录，根目录文件也能登记。agent 入口文件默认一个都不预建，各 agent 首次进入时按 AGENTS.md 里的对照表自建自己的那一份。含 adopt 接管散乱项目（先出迁移建议，--apply 才动）、upgrade 规范模板升级（只出 diff 不覆盖）、check 只读巡检（--fix 修无争议项、--scan 批量）。当用户说"项目初始化、建个新项目、立规矩、规范 agent 行为、生成 AGENTS.md、接管旧项目、整理项目、规范升级、检查项目、项目是不是乱了"时使用，即使没明说"初始化"；agent 进入已初始化项目收工前也可触发自检。
 ---
 
-# project-init —— 项目初始化/接管/升级与 Agent 行为规范
+# project-init —— 立底线，不立模板
 
-在目标项目文件夹一键完成：git 初始化 → 规范目录结构（docs / code / tmp）→ 多 agent 行为规范文件 → 程序项目开发流程脚手架（PRD / Design / TDD / 开发进度台账）。附带巡检（--fix 自动修复、--scan 批量）。脚本仅用 Python 标准库。
+给项目装上四条底线，其余让项目自己长。
 
-## 快速用法（优先用脚本，不要手工逐步执行）
+| 底线 | 落地物 |
+|------|--------|
+| 必须 git 管理 | `git init` + `.gitignore`；正式产出必须入库 |
+| 唯一规范来源 | `AGENTS.md`（各 agent 入口只指向它，不另写一套） |
+| 必须留痕 | `memory/MEMORY.md` + `memory/<日期>.md`，**每条日志带 `模型：`** |
+| 正式产出无 AI 痕迹 | 交付内容与代码注释禁对话腔、emoji、AI 声明、正文修订历史 |
 
-### 场景一：初始化新项目
+**不立**的部分：目录结构（项目自己声明）、要不要建 PRD/Design/TDD（只有 software 预设才要）、agent 入口文件（谁用谁建）。
+
+## 结构预设：先判断项目是什么，再选
+
+| profile | 建的目录 | 适用 |
+|---------|----------|------|
+| `minimal`（默认） | 仅 `memory/` | 笔记、调研、单文件小工具、还没定型的项目 |
+| `docs` | `memory/ docs/ tmp/` | 文档/报告/论文/方案类项目 |
+| `software` | `memory/ docs/ code/ tmp/` + PRD/Design/TDD/开发进度 + `docs/features/` | 正经写代码的项目 |
+
+都不合适就 `--dirs "assets:图片素材"` 追加，反复给几次即可；根目录文件（如 `index.html`）也能在结构表里登记一行。**拿不准就用 `minimal`**——目录随时能加，加完在结构表补一行职责即可。
+
+## 用法
+
+脚本只用 Python 标准库。**务必传 `--model`**（你的模型官方名），它写进首条日志与首次提交署名。
+
+### 场景一：新项目
 
 ```bash
-python "<本skill目录>/scripts/init_project.py" "<项目目录>"
-# 常用变体:
-#   --stack "Python 3.12 + FastAPI"   技术栈写入 AGENTS.md 头部
-#   --for minimal | --for claude,cursor
-#            （可选: claude,gemini,qwen,cursor,windsurf,cline,copilot）
-#   --no-software     纯文档项目：跳过程序项目脚手架
+python "<本skill>/scripts/init_project.py" "<项目目录>" --model "DeepSeek-V4.1-Flash"
+#   --profile minimal|docs|software   结构预设
+#   --dirs "a:用途"                   追加顶层目录（可反复）
+#   --type 软件|文档|混合              默认由 profile 推断；含「软件」才启用开发流程
+#   --stack "Python 3.12 + FastAPI"   技术栈写入 AGENTS.md
+#   --log-mode 逐文件                 除项目日志外，每个正式文件另配 .log.md
+#   --for all|claude,cursor           预建 agent 入口（默认 none，交给各 agent 自建）
 #   --force / --no-git
 ```
 
-脚本依次执行：git init（main 分支）→ docs/（含 assets/、releases/ 由规范约定）、code/、tmp/ → .gitignore（忽略 tmp/ 等）→ 渲染 AGENTS.md（唯一规范来源，头部含技术栈与规范版本）→ 7 个 agent 薄入口（只指向 AGENTS.md）→ 程序项目脚手架（默认，`--no-software` 跳过）：docs/PRD.md、Design.md、TDD.md、开发进度.md（各配 .log.md）+ docs/features/ → README.md → 首次提交（git 身份未配置则跳过）。已存在文件默认跳过；`python` 不可用时用 `py`。
+做的事：git init（main）→ 按预设建目录 → `.gitignore` → `AGENTS.md`（结构表已按实际目录渲染）→ `memory/MEMORY.md` + 当日日志 → software 预设额外生成四份顶层文档 → `README.md` → 首次提交（署名用 `--model`，不写进仓库配置）。已存在的文件默认跳过。
 
 ### 场景二：接管已有散乱项目
 
 ```bash
-python init_project.py "<项目目录>" --adopt          # 补规范结构 + 输出迁移建议（不动文件）
-python init_project.py "<项目目录>" --adopt --apply  # 执行无争议移动（docs/code/tmp 三类）
+python init_project.py "<目录>" --adopt --model "..."        # 补底线 + 出迁移建议，不动文件
+python init_project.py "<目录>" --adopt --apply --model "..." # 执行无争议移动
 ```
 
-建议按扩展名启发式分类（文档→docs/，代码→code/，数据媒体→tmp/，配置保留根目录，其余标"需人工判断"）。**--apply 只移动前三个无争议类，「需人工判断」项必须与用户逐个确认**。移动后：为移入 docs/、code/ 的文件补 .log.md（可用 check --fix），再 git commit。
+`--adopt` 默认按 `software` 预设（老项目多半有 docs/code）。建议按扩展名启发式给出，只落到结构表声明过的目录；**「需人工判断」项一律不动**，必须与用户逐个确认。
 
 ### 场景三：规范模板升级
 
 ```bash
-python init_project.py "<项目目录>" --upgrade   # 打印 diff，新模板写入 tmp/AGENTS.new.md
+python init_project.py "<目录>" --upgrade
 ```
 
-逐段与用户核对后手动合并进 AGENTS.md（规范文件修改须经所有者确认），合并后删除临时文件并提交。不自动覆盖。
+只打印 diff 并把新模板写到 `tmp/AGENTS.new.md`，**不覆盖**——规范文件改不改由所有者定。会保留原有的项目名、类型、日志模式与结构表。1.x 老项目（无结构表）按实际存在的 docs/code/tmp 推断后升级。
 
-### 场景四：规范巡检（只读 / 修复 / 批量）
+### 场景四：巡检
 
 ```bash
-python check_project.py "<项目目录>"              # 只读巡检
-python check_project.py "<项目目录>" --fix        # + 无争议自动修复
-python check_project.py --scan "<工作区根>" [--depth 2]   # 批量巡检所有含 AGENTS.md 的项目
+python check_project.py "<目录>"                        # 只读
+python check_project.py "<目录>" --fix --model "..."    # + 无争议修复
+python check_project.py --scan "<工作区根>" --depth 2   # 批量
 ```
 
-- **[E] 错误**：版本副本增殖（`_v2`/`final`/`最终`/`copy` 等）、docs/ Markdown 的 AI 痕迹（对话腔、AI 声明、emoji）、正文内"修订历史"章节、code/ 注释中的 AI 痕迹、台账与功能文档状态不一致。有 E 则退出码 1。
-- **[W] 警告**：根目录散落文件、缺同名 .log.md 或日志空壳、tmp/ 被 git 跟踪、程序项目缺四份顶层文档、状态非「待办」的功能缺功能文档或缺状态字段、docs//code/ 存在未跟踪正式文件、docs/ 非 UTF-8 编码的 Markdown、命名不规范（占位名、空格/特殊字符、疑似 (1) 重复副本、文件名含日期）。
-- **[I] 提示**：未提交变更、tmp/ 积压（>30 个文件）。
-- **豁免**：`docs/releases/` 为交付快照区，豁免 AI 痕迹、日志配对与版本副本检查。
-- **--fix 只做无争议修复**：补缺失/空壳日志、从模板补缺失顶层文档、按台账补功能文档骨架（各配日志）。AI 痕迹、版本副本、状态冲突等须人工。
+检查依据是项目自己的 `AGENTS.md`：结构表决定「什么该在哪」，头部 `项目类型` 决定要不要开发流程，`日志模式` 决定要不要逐文件日志。
+
+- **[E] 底线级**：不是 git 仓库；缺 `AGENTS.md`；缺 `memory/MEMORY.md` 或工作日志；日志条目缺 `模型：`；版本副本增殖（`_v2`/`final`/`最终`/`(1)`）；正式产出 AI 痕迹；台账与功能文档状态不一致。有 E 退出码 1。
+- **[W] 建议**：结构表声明了却没建的目录；根目录出现未登记条目；逐文件模式下缺日志；software 项目缺顶层文档；命名不规范（占位名、空格特殊字符、文件名带日期）；非 UTF-8；tmp 被 git 跟踪；未跟踪正式文件；日志 14 天没更新。
+- **[I] 提示**：未提交变更；临时区积压；日日志超过 60 份。
+- **--fix 只做无争议的**：补声明过的目录、`MEMORY.md`、当日日志、顶层文档、功能文档骨架、逐文件日志。AI 痕迹、版本副本、状态冲突须人工。
 
 ## 初始化之后（触发本 skill 的 agent 必做）
 
-1. 读取项目内生成的 `AGENTS.md` 全文，并在**本会话后续所有工作中严格遵守**。
-2. 向用户简报：建了哪些目录与文件；规范五条核心规则各一句话（存放 / 迭代 / 日志 / 无 AI 痕迹 / 开发流程，见下）。
+1. 读项目内生成的 `AGENTS.md` 全文，本会话后续工作严格遵守。
+2. **按需建自己的入口**：项目里没有你所用工具的入口文件时，照 `AGENTS.md` 第 7 节的对照表建一个只指向 `AGENTS.md` 的薄入口，提交后继续。只建你自己那一个，不代建别的 agent 的。
+3. 向用户简报：选了哪个 profile、建了哪些目录与文件、四条底线各一句话、当前哪些地方还是空的（如 `MEMORY.md` 的「项目是什么」待填）。
 
-## 巡检之后的修复纪律
+## 为什么这样设计
 
-- E 类应修复：状态不一致 → 与用户核对哪边是真，改正错误一方并记日志；AI 痕迹 → 改写为正式书面表达；版本副本 → 与用户确认保留哪份，合并回主文件后 `git rm` 并记日志。
-- 涉及删除、合并、重命名的操作属破坏性操作：先列清单征得用户同意，执行后在对应 .log.md 记录。
-- W / I 类：报告并给建议，用户同意后再动（补日志类可直接用 --fix）。
-
-## 规范要点（与生成的 AGENTS.md 一致，供 agent 快速对照）
-
-- **存放**：正式文档进 `docs/`，正式代码与测试（`code/tests/`）进 `code/`，其余一切临时产物（含一次性脚本）进 `tmp/`（git 忽略）；根目录不放散文件；配图进 `docs/assets/`；交付快照进 `docs/releases/`（豁免禁副本与日志）。
-- **迭代**：就地修改原文件，禁版本副本；历史交给 git。
-- **命名**：见名知义，禁占位名（新建/未命名/untitled/aaa/123 等）；只用中文、字母、数字、连字符、下划线；正式文件名不带日期与版本（`docs/releases/` 快照须含版本号）；文档用中文名，代码按语言社区惯例并全项目统一。
-- **日志**：每正式文件配同名 `<主名>.log.md`，逐条追加"时间/修改者/摘要/原因"；根目录规范文件、.gitignore、releases 快照无需日志。
-- **无 AI 痕迹**：docs 内容与 code 注释禁对话腔、AI 声明、emoji、正文修订历史章节、占位残留。
-- **开发流程**（程序项目）：四份顶层文档缺一不可（PRD 做什么为什么 / Design 怎么做 / TDD 技术方案 / 开发进度台账=唯一进度事实来源，顶部有「当前功能」行）；收到多功能需求先把全部登记为「待办」，一次只开发一个：`待办→开发中→待测试→测试通过→已审核`，测试未通过登记「缺陷记录」表、缺陷不关闭不得回到测试通过也不得开下一个功能；每功能一份 `docs/features/<功能名>.md`（功能说明/实现思路/测试情况/审核记录）；每个功能须人工审核，agent 不得自行标记「测试通过」「已审核」。
+- **结构交给项目声明，不交给脚本**：真实项目差别很大（论文、数据、单页应用、笔记库），一刀切只会逼人绕过规则。现在唯一的硬约束是「表里写的就得照做」。
+- **入口文件不预建**：预建 7 个只会制造 7 份要么过时要么没人读的指针。谁进来谁建自己那份，成本更低也更准。
+- **底线必须硬**：git 与记忆日志是「事后还能查」的唯一保障，模型 id 是「谁改的」的唯一线索——这三样松了，规范再漂亮也没用。
+- **`memory/` 不分家**：长期记忆与当日日志放一处，agent 进入时读两个文件就够，比散在根目录的 `*_NOTES.md` 可靠。
 
 ## 自定义
 
-- 改规范内容：`assets/AGENTS.template.md`（{{PROJECT_NAME}}/{{TECH_STACK}}/{{VERSION}} 占位符），改后递增 init_project.py 的 `VERSION`，已初始化项目用 `--upgrade` 同步。
-- 改程序项目文档模板：`assets/software/`。
-- 改检查规则与白名单：`check_project.py` 顶部常量（ALLOWED_ROOT、VERSIONISH、短语表、CODE_EXTS、REQUIRED_SW_DOCS、SKIP_DIRS）。
-- 改接管启发式：`init_project.py` 的 KEEP_ROOT / DOC_EXTS / CODE_EXTS / TMP_EXTS。
-- 新增 agent 适配：`init_project.py` 的 `ADAPTERS` 字典加一个"指向 AGENTS.md"的入口。
+- 规范正文：`assets/AGENTS.template.md`（占位符 `{{PROJECT_NAME}} {{PROJECT_TYPE}} {{TECH_STACK}} {{VERSION}} {{LOG_MODE}} {{STRUCTURE_ROWS}} {{SOFTWARE_SECTION}} {{PER_FILE_NOTE}}`）。改后递增 `init_project.py` 的 `VERSION`，老项目用 `--upgrade` 同步。
+- 开发流程段落：`assets/sections/software.md`（程序项目）与 `assets/sections/plain.md`（非程序项目）。
+- 程序项目文档模板：`assets/software/`。
+- 结构预设：`init_project.py` 的 `PROFILES`；agent 入口：`ADAPTERS`；接管启发式：`KEEP_ROOT / DOC_EXTS / CODE_EXTS / TMP_EXTS`。
+- 检查规则与词表：`check_project.py` 顶部常量（`ALLOWED_ROOT`、`VERSIONISH`、`AI_PHRASES_*`、`REQUIRED_SW_DOCS`、`LOG_STALE_DAYS`）。
 
 ## 自测
 
 ```bash
-python scripts/init_project.py %TEMP%\pi-test && python scripts/check_project.py %TEMP%\pi-test   # 应无 E/W
-python scripts/init_project.py %TEMP%\pi-mess --adopt          # 散乱目录应输出迁移建议，--apply 执行
-python scripts/check_project.py --scan %TEMP% --depth 1        # 批量巡检
-python scripts/init_project.py %TEMP%\pi-test --upgrade        # 同版本应报"已是最新"
+python scripts/init_project.py %TEMP%\pi-min --model T && python scripts/check_project.py %TEMP%\pi-min   # 应 0E 0W
+python scripts/init_project.py %TEMP%\pi-sw --profile software --model T                                 # 四份顶层文档就位
+python scripts/check_project.py %TEMP%\pi-sw --fix --model T                                             # 补记忆/日志
+python scripts/check_project.py --scan %TEMP% --depth 1                                                  # 批量
+python scripts/init_project.py %TEMP%\pi-min --upgrade                                                   # 同版本应报「已是最新」
 ```
 
-违规样例：docs/ 放 `报告_v2.md`（含对话腔）应报 E 副本+E 痕迹+W 缺日志；台账登记状态「测试通过」但功能文档写「待办」应报 E 状态不一致；`code/main.py` 注释含"作为一个AI"应报 E 注释痕迹；`docs/新建文档 (1).md`、`docs/20260928-报告.md` 应报 W 命名不规范。
+违规样例：`docs/报告_v2.md`（含「作为一个AI」）应报 E 副本 + E 痕迹；`memory/` 里某条日志缺 `模型：` 应报 E；根目录放未登记的 `index.html` 应报 W 并在结构表补一行后消失。

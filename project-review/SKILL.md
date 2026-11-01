@@ -5,7 +5,7 @@ description: 项目规范审查器（六维审计报告 + 评分）。对项目�
 
 # project-review —— 项目规范审查（六维评分 + 审计报告）
 
-对项目做阶段性审查并产出**给人看的审计报告**：透明扣分制评分（六维加权 0-100，A≥90 / B≥75 / C≥60 / 其余 D）、问题清单（E 必须修复 / W 建议修复 / I 提示）、按优先级的修复建议。独立自包含，不依赖 project-init；规范基准对齐 project-init AGENTS.md v1.2.0。脚本仅用 Python 标准库。
+对项目做阶段性审查并产出**给人看的审计报告**：透明扣分制评分（六维加权 0-100，A≥90 / B≥75 / C≥60 / 其余 D）、问题清单（E 必须修复 / W 建议修复 / I 提示）、按优先级的修复建议。独立自包含，不依赖 project-init；规范基准对齐 project-init AGENTS.md v2.0.0。结构判定读项目自己的 `AGENTS.md` 结构表（1.x 老项目按 docs/code/tmp 兜底），`日志模式` 非「逐文件」时不查同名 `.log.md`。脚本仅用 Python 标准库。
 
 ## 六个审查维度
 
@@ -51,6 +51,7 @@ python "<本skill目录>/scripts/review_project.py" "<项目目录>" --json     
 - **project-init 的 check_project.py**：开发过程中 agent 的随手 lint，管"现在干不干净"，带 --fix。
 - **project-review（本 skill）**：阶段性给人看的审计，管"这段时间规不规范、有没有风险"——增加 git 历史审查、修改留痕联动、测试/审核可证性、敏感信息、可移植性、评分与报告。
 - 两者独立安装均可运行；同机安装时结论互相印证（两者都豁免 docs/审查报告.md 自身）。
+- 结构基准同源：都读项目 `AGENTS.md` 第 1 节的结构表，不假定 docs/code/tmp 一定存在。`memory/` 下的项目日志不参与 AI 痕迹与命名检查。
 
 ## 自定义
 
