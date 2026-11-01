@@ -184,6 +184,24 @@
     opacity:0; transition:opacity .15s; pointer-events:none; z-index:9;
   }
   #toast.show{opacity:.94}
+
+  /* 违例分级徽标：数字按级别着色，点击切换过滤（不是装饰，是过滤入口） */
+  .bdg{
+    font-family:"Cascadia Mono",Consolas,monospace; font-size:10px; line-height:1;
+    color:var(--mute); background:transparent;
+    border:1px solid var(--line2); border-radius:8px; padding:2px 6px;
+    cursor:pointer; pointer-events:auto;
+  }
+  .bdg.e{color:var(--err); border-color:var(--err)}
+  .bdg.w{color:var(--warn); border-color:var(--warn)}
+  .bdg.on{background:var(--ink); color:var(--panel); border-color:var(--ink)}
+  /* 分区折叠：h2 点击收起正文。用通配而不是逐个列 id，新加 sec 不用记得改这里 */
+  .sec.foldable > h2{cursor:pointer; user-select:none}
+  .sec.foldable > h2 .tw{width:10px; text-align:center; color:var(--mute); font-size:9px}
+  .sec.collapsed > :not(h2){display:none !important}
+  /* 拖动/缩放期间全局换成抓取光标：SVG 内部元素各有自己的 cursor，
+     不加全局覆盖的话拖起来光标会在 move/箭头之间闪 */
+  body.grabbing, body.grabbing *{cursor:grabbing !important}
 </style>
 </head>
 <body>
@@ -197,10 +215,10 @@
   </div>
   <div class="vsep"></div>
   <div class="grp">
-    <button id="zoom-out" title="缩小 (Ctrl+滚轮)">−</button>
+    <button id="zoom-out" title="缩小 (Ctrl+滚轮 / −)">−</button>
     <span id="zoomv">100%</span>
-    <button id="zoom-in" title="放大">+</button>
-    <button id="zoom-fit">适应</button>
+    <button id="zoom-in" title="放大 (Ctrl+滚轮 / +)">+</button>
+    <button id="zoom-fit" title="适应窗口，宽和高都放得下 (0)">适应</button>
   </div>
   <div class="vsep"></div>
   <button id="undo" title="撤销 (Ctrl+Z)">撤销</button>
@@ -253,18 +271,22 @@
       <button class="mini" data-order="back" title="置于最下层">置底</button>
     </div>
   </div>
-  <div class="sec">
-    <h2>违例 <span class="cnt" id="vcnt">0</span></h2>
+  <div class="sec foldable" id="sec-viol">
+    <h2>违例 <span class="cnt" id="vcnt">0</span>
+      <button class="bdg e" id="f-err" title="只看错误（再点一次恢复全部）">E 0</button>
+      <button class="bdg w" id="f-warn" title="只看建议（再点一次恢复全部）">W 0</button>
+      <span class="tw">▾</span></h2>
     <ul id="viol"></ul>
   </div>
-  <div class="sec">
-    <h2>改动清单 <span class="cnt" id="ocnt">0</span></h2>
+  <div class="sec foldable" id="sec-ops">
+    <h2>改动清单 <span class="cnt" id="ocnt">0</span>
+      <span class="tw">▾</span></h2>
     <div id="ops">—</div>
   </div>
   <div class="hint">
     拖动移动 · 靠近边缘/中心/网格自动吸附<br>
-    <kbd>←↑↓→</kbd> 微调 · <kbd>Shift</kbd> 更细 · <kbd>[</kbd><kbd>]</kbd> 字号<br>
-    <kbd>G</kbd> 网格 · <kbd>S</kbd> 吸附 · <kbd>T</kbd> 主题<br>
+    <kbd>←↑↓→</kbd> 微调 · <kbd>Shift</kbd> 更细 · <kbd>[</kbd><kbd>]</kbd> 字号 · <kbd>Esc</kbd> 取消选中<br>
+    <kbd>G</kbd> 网格 · <kbd>S</kbd> 吸附 · <kbd>T</kbd> 主题 · <kbd>+</kbd>/<kbd>−</kbd>/<kbd>0</kbd> 缩放<br>
     <kbd>Ctrl</kbd>+<kbd>Z</kbd> 撤销 · <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> 重做
   </div>
 </aside>
@@ -482,6 +504,18 @@ function setZoom(z){
   zoom = Math.min(4, Math.max(0.4, z));
   applyZoom();
 }
+function fitZoom(){
+  // 「适应」不是回到 100%：zoom=1 时画板宽已等于可用宽，但高度方向可能超出窗口。
+  // 按 viewBox 宽高比算出「宽和高都放得下」的最大缩放；宽本就装得下，所以上限是 1。
+  const s = svgEl();
+  const vb = s && s.viewBox.baseVal;
+  if(!vb || !vb.width) return 1;
+  const availW = Math.max(200, stage.clientWidth - 44);
+  const availH = Math.max(120, stage.clientHeight - 44);
+  const w1 = baseWidth();
+  const h1 = w1 * vb.height / vb.width;
+  return Math.min(1, availW / w1, availH / h1);
+}
 
 /* ---------- 预览：直接改属性，不用 CSS transform ----------
    CSS 的 transform 会整个替换元素自带的 transform 属性，
@@ -674,7 +708,9 @@ canvas.addEventListener('mousedown', e=>{
   // 属性面板停在旧对象上，很容易改错东西。
   if(!el || el.hasAttribute('data-fflock')){ select(null); return; }
   e.preventDefault();
+  cancelNudge(false);          // 键控微调还没落盘就被拖动接手：按原位收场，不计 op
   select(el);
+  document.body.classList.add('grabbing');
   const p0 = toUser(e);
   // 吸附基准用根坐标系的 AABB，和 toUser 算出的 dx 在同一空间
   let base = {x:0, y:0, width:0, height:0};
@@ -706,6 +742,7 @@ canvas.addEventListener('mousedown', function(e){
   if(!e.target.hasAttribute || !e.target.hasAttribute('data-ffhandle')) return;
   if(!sel) return;
   e.preventDefault();
+  document.body.classList.add('grabbing');
   const b = sel.getBBox();
   resizing = {el: sel, p0: toUser(e), w0: b.width, h0: b.height,
               fs0: parseFloat(getComputedStyle(sel).fontSize) || 12,
@@ -733,6 +770,7 @@ window.addEventListener('mousemove', function(e){
 });
 
 window.addEventListener('mouseup', async ()=>{
+  document.body.classList.remove('grabbing');
   if(resizing){
     const r = resizing;
     resizing = null;
@@ -757,9 +795,16 @@ window.addEventListener('keydown', async e=>{
   }
   if(e.ctrlKey && e.key.toLowerCase() === 'y'){ e.preventDefault(); await redo(); return; }
   if(e.target.tagName === 'INPUT') return;
+  if(e.key === '+' || e.key === '='){ setZoom(zoom * 1.2); return; }
+  if(e.key === '-' || e.key === '_'){ setZoom(zoom / 1.2); return; }
+  if(e.key === '0'){ setZoom(fitZoom()); return; }
   if(e.key === 'g' || e.key === 'G'){ toggleGrid(); return; }
   if(e.key === 's' || e.key === 'S'){ toggleSnap(); return; }
   if(e.key === 't' || e.key === 'T'){ toggleTheme(); return; }
+  if(e.key === 'Escape'){
+    if(nudge) cancelNudge(false); else select(null);
+    return;
+  }
   if(sel && isText(sel) && (e.key === '[' || e.key === ']')){
     e.preventDefault();
     const cur = parseFloat(getComputedStyle(sel).fontSize) || 12;
@@ -768,15 +813,37 @@ window.addEventListener('keydown', async e=>{
     return;
   }
   if(!sel || ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].indexOf(e.key) < 0) return;
+  if(dragging || resizing) return;
   e.preventDefault();
   const step = e.shiftKey ? 0.2 : 1.0;
-  const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
-  const dy = e.key === 'ArrowUp'   ? -step : e.key === 'ArrowDown'  ? step : 0;
-  setHud(dx, dy);
-  await commit(sel.dataset.ffid, dx, dy);
+  if(!nudge) nudge = {el: sel, snap: snapAttrs(sel), dx: 0, dy: 0, t: null};
+  nudge.dx += e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
+  nudge.dy += e.key === 'ArrowUp'   ? -step : e.key === 'ArrowDown'  ? step : 0;
+  previewShift(nudge.el, nudge.snap, nudge.dx, nudge.dy);
+  setHud(nudge.dx, nudge.dy);
+  // 连按/按住方向键不能每键落一条 op：按住一秒能刷出十几条 1px 碎步，
+  // 清单没法看、撤销要按十几次。静默 280ms 才算一次手势，合并成一条净位移。
+  clearTimeout(nudge.t);
+  nudge.t = setTimeout(function(){ cancelNudge(true); }, 280);
 });
 
 window.addEventListener('resize', function(){ applyZoom(); });
+
+/* ---------- 键控微调：连续按键合并成一次落盘 ---------- */
+let nudge = null;   // {el, snap, dx, dy, t}
+function cancelNudge(commitIt){
+  if(!nudge) return;
+  const n = nudge; nudge = null;
+  clearTimeout(n.t);
+  restoreAttrs(n.el, n.snap);
+  if(commitIt && (Math.abs(n.dx) > 0.001 || Math.abs(n.dy) > 0.001)){
+    commit(n.el.dataset.ffid, n.dx, n.dy);
+  }else{
+    setHud(0,0);
+  }
+}
+// 切走窗口时把没落盘的微调先落了，不然静默丢一次改动
+window.addEventListener('blur', function(){ cancelNudge(true); });
 
 stage.addEventListener('wheel', e=>{
   if(!e.ctrlKey) return;
@@ -871,12 +938,24 @@ const VLABEL = {
 function renderViolations(){
   const ul = document.getElementById('viol');
   ul.innerHTML = '';
-  document.getElementById('vcnt').textContent = state.violations.length;
-  if(!state.violations.length){
+  const all = state.violations || [];
+  document.getElementById('vcnt').textContent = all.length;
+  // 分级计数挂在徽标上，点徽标即过滤——比把数字塞进标题更有用
+  const nErr = all.filter(v=>v.severity === 'error').length;
+  const nWarn = all.length - nErr;
+  document.getElementById('f-err').textContent = 'E ' + nErr;
+  document.getElementById('f-warn').textContent = 'W ' + nWarn;
+  const shown = violFilter === 'all' ? all
+              : all.filter(v=>v.severity === violFilter);
+  if(!all.length){
     ul.innerHTML = '<li class="empty">无违例</li>';
     return;
   }
-  state.violations.forEach(v=>{
+  if(!shown.length){
+    ul.innerHTML = '<li class="empty">该级别暂无违例（显示全部请再点一次徽标）</li>';
+    return;
+  }
+  shown.forEach(v=>{
     const label = VLABEL[v.code] || v.code;
     let text = v.msg || '';
     // msg 往往已以中文类别开头（"文字重叠 1.8×0.6mm…"），
@@ -900,6 +979,17 @@ function renderViolations(){
     ul.appendChild(li);
   });
 }
+
+/* 违例过滤：all → err / warn，再点一次回到 all */
+let violFilter = 'all';
+function setViolFilter(f){
+  violFilter = (violFilter === f) ? 'all' : f;
+  document.getElementById('f-err').classList.toggle('on', violFilter === 'err');
+  document.getElementById('f-warn').classList.toggle('on', violFilter === 'warn');
+  renderViolations();
+}
+document.getElementById('f-err').onclick = function(e){ e.stopPropagation(); setViolFilter('err'); };
+document.getElementById('f-warn').onclick = function(e){ e.stopPropagation(); setViolFilter('warn'); };
 
 function flash(ffids){
   canvas.querySelectorAll('.ff-hit').forEach(e=>e.classList.remove('ff-hit'));
@@ -989,7 +1079,7 @@ bindNum('p-h', 'height');
 
 document.getElementById('zoom-in').onclick  = function(){ setZoom(zoom * 1.2); };
 document.getElementById('zoom-out').onclick = function(){ setZoom(zoom / 1.2); };
-document.getElementById('zoom-fit').onclick = function(){ setZoom(1); };
+document.getElementById('zoom-fit').onclick = function(){ setZoom(fitZoom()); };
 document.getElementById('undo').onclick     = undo;
 document.getElementById('redo').onclick     = redo;
 document.getElementById('t-grid').onclick   = toggleGrid;
@@ -1028,6 +1118,32 @@ document.getElementById('grid-step').onchange = function(e){
   else e.target.value = gridStep;
 };
 
+/* ---------- 侧栏分区折叠（记住状态） ---------- */
+(function(){
+  const KEY = 'layoutfix.fold';
+  let saved = {};
+  try{ saved = JSON.parse(localStorage.getItem(KEY) || '{}'); }catch(_){}
+  ['sec-viol','sec-ops'].forEach(function(id){
+    const sec = document.getElementById(id);
+    if(!sec) return;
+    if(saved[id]){
+      sec.classList.add('collapsed');
+      const tw = sec.querySelector('.tw');
+      if(tw) tw.textContent = '▸';
+    }
+  });
+  document.querySelectorAll('.sec.foldable > h2').forEach(function(h){
+    h.onclick = function(){
+      const sec = h.parentElement;
+      sec.classList.toggle('collapsed');
+      const tw = sec.querySelector('.tw');
+      if(tw) tw.textContent = sec.classList.contains('collapsed') ? '▸' : '▾';
+      saved[sec.id] = sec.classList.contains('collapsed');
+      try{ localStorage.setItem(KEY, JSON.stringify(saved)); }catch(_){}
+    };
+  });
+})();
+
 try{
   applyTheme(localStorage.getItem('layoutfix.theme') ||
              (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'),
@@ -1042,6 +1158,9 @@ try{
   // 人点开就停在出问题的那个元素上，不用在图里找。
   const qs = q.get('sel');
   if(qs) selId = qs;
+  // ?theme=dark|light 强制主题——agent 截图/录屏需要稳定配色时用，不写入 localStorage
+  const qt = q.get('theme');
+  if(qt === 'dark' || qt === 'light') applyTheme(qt, false);
 }catch(_){}
 
 refresh().then(function(){

@@ -1,2 +1,4 @@
 work*
 *.png
+*.bak 
+*.nudge.jsonl
