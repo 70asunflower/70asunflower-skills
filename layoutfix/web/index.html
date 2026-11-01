@@ -20,6 +20,17 @@
     --on:#26405c; --onb:#3a5c80; --rule:#2b2b28; --kbd:#2b2b28; --artboard:#1e1e1c;
   }
   *{box-sizing:border-box}
+  /* 细滚动条，随主题走：默认滚动条在暗色下是一条刺眼的浅灰，
+     而且又宽又方，跟整个界面的密度不搭 */
+  *{scrollbar-width:thin; scrollbar-color:var(--line2) transparent}
+  ::-webkit-scrollbar{width:9px; height:9px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{
+    background:var(--line2); border-radius:5px;
+    border:2px solid transparent; background-clip:content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover{background-color:var(--mute)}
+  ::-webkit-scrollbar-corner{background:transparent}
   html,body{margin:0;height:100%}
   body{
     font:11px/1.45 "Segoe UI","Noto Sans SC","Microsoft YaHei UI",sans-serif;
@@ -62,8 +73,9 @@
     text-align:center; color:var(--mute);
   }
   #title{
-    margin-left:auto; color:var(--mute); font-size:11px; padding-right:4px;
-    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:40%;
+    flex:1; min-width:0; margin-left:12px; color:var(--mute); font-size:11px;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:right;
+    padding-right:4px;
   }
 
   #stage{
@@ -973,7 +985,7 @@ window.addEventListener('keydown', async e=>{
   nudge.t = setTimeout(function(){ cancelNudge(true); }, 280);
 });
 
-window.addEventListener('resize', function(){ applyZoom(); });
+window.addEventListener('resize', function(){ applyZoom(); setTitle(); });
 
 /* ---------- 键控微调：连续按键合并成一次落盘 ---------- */
 let nudge = null;   // {el, snap, dx, dy, t}
@@ -1030,6 +1042,22 @@ async function doUndo(){
   }
 }
 
+/* 顶栏路径：先整个显示，放不下再从左边一段一段省略——
+   文件名和最近的层级是最有用的信息，掐头比掐尾好；
+   到还剩两级还不放下才交给 CSS 省略号，悬停 title 看全路径。 */
+function setTitle(){
+  const tEl = document.getElementById('title');
+  const full = String(state.file || '');
+  tEl.title = full;
+  const parts = full.split(/[\\/]+/).filter(Boolean);
+  const segs = parts.slice();
+  tEl.textContent = segs.join('/') || '—';
+  while(segs.length > 2 && tEl.scrollWidth > tEl.clientWidth){
+    segs.shift();
+    tEl.textContent = '…/' + segs.join('/');
+  }
+}
+
 function toggleGrid(){
   gridOn = !gridOn;
   document.getElementById('t-grid').classList.toggle('on', gridOn);
@@ -1053,11 +1081,7 @@ async function refresh(){
   renderViolations();
   renderOps();
   // 完整路径能长到几百像素，顶栏放不下也没人看；只留末两级，全路径进 title
-  const parts = String(state.file || '').split(/[\\/]+/).filter(Boolean);
-  const tEl = document.getElementById('title');
-  tEl.textContent = parts.length > 2 ? '…/' + parts.slice(-2).join('/')
-                                     : (parts.join('/') || '—');
-  tEl.title = state.file || '';
+  setTitle();
   if(selId){
     const el = canvas.querySelector('[data-ffid="' + CSS.escape(selId) + '"]');
     if(el){
