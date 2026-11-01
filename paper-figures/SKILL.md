@@ -174,6 +174,10 @@ PyMuPDF 渲染 PDF 为 300 DPI 基准图 $\to$ PowerPoint COM 无头静默导出
 | **`template_poster_pptx.py`** | 易拉宝 1:2 可编辑 PPTX 模板 | 30x80cm 规格、全原生矢量、正文字号 $\ge 15\text{pt}$ |
 | **`check_poster_preflight.py`** | 海报印前预检 | 画布尺寸、出血、字号下限、图片 DPI 一次查完，交付前跑 |
 | **`generate_poster_figures.py`** | 海报专用图表模板 | matplotlib 300 DPI，按卡片实际宽度反算像素预算 |
+| **`ieee_matplotlib_template.py`** | IEEE 单图 matplotlib 模板 | 复制成 `plot_figN_xxx.py` 后改数据，版面/字号已按 IEEE 调好 |
+| **`make_fig_pptx_template.py`** | 原生可编辑 PPTX 单图模板 | 圆角卡片 + 药丸标签，双击即改，走 `pptx_core` |
+| **`template_figure_diagram.py`** | 海报图表与概念机制图矢量规范 | matplotlib 300 DPI，海报卡片宽度下的字号与线宽 |
+| **`verify_poster_diff.py`** | 海报 PDF vs PPTX 像素级切片比对 | 双轨交付后验一致性，逐片出差异图 |
 | **`canvas.py`** | 坐标画布协议与碰撞检测 | `Canvas(fig)`，输出 `*_grid.png` 与 `*_layout.txt` 坐标清单 |
 | **`pptx_to_vector.py`** | PPT 示意图转出版级矢量 PDF | COM 导出整副 PDF + PyMuPDF 实测包围盒裁切 |
 | **`preview.py`** | 图渲染成 PNG 供 agent 看 | `--clip` 只渲局部；`--violations` 自动逐条渲违例区域；PyMuPDF 直出零依赖 |
@@ -181,7 +185,23 @@ PyMuPDF 渲染 PDF 为 300 DPI 基准图 $\to$ PowerPoint COM 无头静默导出
 
 ---
 
-## 四、与用户的交互红线
+## 四、参考文档（`references/`）
+
+正文只留判断规则，具体规范与案例在下面这些文件里，按需读：
+
+| 文档 | 什么时候读 |
+|---|---|
+| `print_specifications.md` | 做海报/易拉宝，查印刷尺寸、出血、色彩模式 |
+| `typography_and_cjk.md` | 中英混排、标点避头尾、字号层级拿不准时 |
+| `openxml_pptx_hacks.md` | 改 PPTX 底层 XML（字体声明、圆角、边距）前 |
+| `diagram_horizontal_discipline.md` | 画机制图/流程图，判断元素该不该横平竖直 |
+| `visual_parity_protocol.md` | 双轨交付（PDF + PPTX）要验一致性时的判定口径 |
+| `statistical_integrity_contract.md` | 图上要标误差线、显著性、样本量之前 |
+| `how_to_modify_poster.md` | 海报要交给别人继续改或送印时 |
+
+---
+
+## 五、与用户的交互红线
 
 - **用户说“改好了让你翻译/导出”之前，绝不碰用户的 PPT/图文件**——不覆盖、不“顺手刷新”、不恢复旧版。
 - 转换用 `DispatchEx`（独立进程），用户开着 PowerPoint 时**永不 Quit**、不附加其会话。

@@ -70,6 +70,8 @@ C:\Users\qilin\miniconda3\python.exe
 
 使用现代 Python CAD 库 `build123d` 进行高精度的实体 Brep 建模。
 
+> 工业级参数化建模的写法约定（Builder vs Algebra 模式怎么选、Sketch 约束、定位与镜像、常见报错）见 [build123d 最佳实践](./references/build123d_best_practices.md)，动手前先读一遍。
+
 ### 1. 强制执行 Z 轴标高规划
 在编写代码前，用注释清晰定义全局 Z 轴坐标：
 ```python
