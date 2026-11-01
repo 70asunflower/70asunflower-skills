@@ -416,6 +416,7 @@ def cmd_doctor(cfg, args):
     baseline = load_baseline(cfg["hub"])
     exempt = set(baseline["intentional"]) | set(baseline["chained"])
     issues = 0
+    broken = 0
 
     print(f"主库: {cfg['hub']}  exists={cfg['hub'].exists()}\n")
 
@@ -428,9 +429,11 @@ def cmd_doctor(cfg, args):
             if tgt is None:
                 print(f"[断链] {a}/{name}：读不出目标")
                 issues += 1
+                broken += 1
             elif not Path(tgt).exists():
                 print(f"[断链] {a}/{name} → {tgt}（目标不存在）")
                 issues += 1
+                broken += 1
 
     # 2 链式嵌套
     for a in agents:
@@ -475,6 +478,9 @@ def cmd_doctor(cfg, args):
     gitdir = cfg["hub"] / ".git"
     print(f"\n[提示] 主库 git 管理: {'已初始化' if gitdir.exists() else '未初始化（建议 git init 便于回滚）'}")
 
+    if broken:
+        print(f"\n[提示] {broken} 个断链是「技能已删、junction 还留着」，"
+              f"跑 `skillsync.py prune --apply` 一次清掉")
     print(f"\n问题数: {issues}")
     return 0 if issues == 0 else 1
 
@@ -800,6 +806,52 @@ def cmd_add(cfg, args):
     return 0
 
 
+def cmd_prune(cfg, args):
+    """清理断链：junction 还在，但它指向的目标已经没了。
+
+    典型场景：技能从主库删掉后，各 agent 目录里那条 junction 成了空壳。
+    doctor 会报「断链」，但没地方一键清理，只能手工逐个删。
+    """
+    apply = getattr(args, "apply", False)
+    stale = []
+    for a, base in cfg["agents"].items():
+        base = Path(base)
+        if not base.is_dir():
+            continue
+        for child in sorted(base.iterdir()):
+            if not is_link(child):
+                continue
+            tgt = link_target(child)
+            # 断链的判定必须用 lexists + 目标存在性，不能用 exists()：
+            # 断链本身 exists() 就是 False，分不清「没有这个链接」和「链接坏了」
+            if tgt is None or not tgt.exists():
+                stale.append((a, child, tgt))
+
+    if not stale:
+        print("没有断链，不用清理。")
+        return 0
+
+    print(f"发现 {len(stale)} 个断链：")
+    for a, p_, tgt in stale:
+        print(f"  {a:<14}{p_.name:<34}→ {tgt if tgt else '(读不出目标)'}")
+
+    if not apply:
+        print("\n这是 dry-run。确认要删就加 --apply（只删链接本身，不碰目标目录）。")
+        return 0
+
+    ok = fail = 0
+    for a, p_, tgt in stale:
+        try:
+            # os.rmdir 对 junction 只摘掉重解析点，不递归、不碰目标
+            os.rmdir(p_)
+            ok += 1
+        except OSError as e:
+            print(f"  [失败] {a}/{p_.name}: {e}")
+            fail += 1
+    print(f"\n已清理 {ok} 个" + (f"，失败 {fail} 个" if fail else ""))
+    return 0 if fail == 0 else 1
+
+
 def cmd_gitignore(cfg, args):
     res = update_gitignore(cfg, add=getattr(args, "add", None))
     if res is None:
@@ -924,6 +976,9 @@ def main():
     p.add_argument("--name")
     p.add_argument("--apply", action="store_true")
 
+    p = sub.add_parser("prune", help="清理断链（技能已删、junction 还留着）")
+    p.add_argument("--apply", action="store_true", help="真正删除，默认 dry-run")
+
     p = sub.add_parser("gitignore", help="刷新 .gitignore 的第三方技能区块（只减不增）")
     p.add_argument("--add", nargs="+", metavar="SKILL",
                    help="显式把技能加入排除名单")
@@ -938,6 +993,7 @@ def main():
 
     fn = {"status": cmd_status, "scan": cmd_scan, "doctor": cmd_doctor,
           "adopt": cmd_adopt, "link": cmd_link, "add": cmd_add,
+          "prune": cmd_prune,
           "gitignore": cmd_gitignore, "rules": cmd_rules}[args.cmd]
     return fn(cfg, args)
 

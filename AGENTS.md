@@ -71,6 +71,7 @@ python scripts/skillsync.py status        # 各 agent 每个技能的链接状�
 python scripts/skillsync.py doctor        # 断链、链式嵌套等结构问题
 python scripts/skillsync.py scan          # 多副本漂移报告
 python scripts/skillsync.py link --apply  # 把仓库技能分发到各 agent
+python scripts/skillsync.py prune         # 清理断链（技能删了、junction 还在）
 python scripts/skillsync.py adopt --only <skill> --apply   # 从某 agent 吸收技能进仓库
 python scripts/skillsync.py rules --apply # 把本规则块分发到各 agent 全局文件
 
