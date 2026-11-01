@@ -18,6 +18,29 @@ description: 项目底线与规范生成器。只立四条不可协商的底线�
 
 **三层留痕各管一段，别混**：项目记忆放长期结论（是什么/决策/坑），日日志放「今天整个项目做了什么」，逐文件日志放「这个文件被谁改过」。三者都强制，巡检缺一即报 E。
 
+## 何时必须触发（硬规则，不靠用户开口）
+
+只要出现下列动作，**第一件事是跑本 skill，不要先建目录、先写文件**：
+
+- 新建项目 / 新建仓库 / 「帮我起个项目」/ 在一个空目录里开工
+- 接管、整理、规范化一个已有项目
+- 用户问「项目是不是乱了 / 有没有 AI 痕迹 / 该建的文档建了吗」
+
+跑完**立即用 `project-review` 跑一次基线审查**，把起始分数记进当日日日志，此后阶段性复查。两个技能是配套的：init 立规矩，review 给分数和整改清单。
+
+## 首次使用：把这条规则写进全局记忆
+
+本 skill 第一次被使用时（或换了一台机器、新装了一个 agent），**必须先把这条规则登记进该 agent 的全局记忆**，否则下次开新项目时没有任何东西提醒你触发它：
+
+```bash
+python "<本skill>/scripts/ensure_rule.py"          # 先看哪些 agent 没登记
+python "<本skill>/scripts/ensure_rule.py" --apply  # 写入
+```
+
+规则正文的唯一来源是 `assets/global-rule.md`；脚本把它按 `<!-- BEGIN project-init-rule -->` 标记块写进各 agent 的全局文件（Claude `~/.claude/CLAUDE.md`、Codex `~/.codex/AGENTS.md`、ZCode `~/.zcode/AGENTS.md`、Gemini `~/.gemini/GEMINI.md`、WorkBuddy 国内版 `~/.workbuddy/MEMORY.md`、海外版 `~/.workbuddy-ai/user-*/MEMORY.md`）。**幂等**：同内容跳过，规则改了就地替换标记块，不碰文件其他内容。只处理已存在的 agent 目录，不凭空造文件。
+
+跑完向用户说一句「已把新建项目规则写进 N 个 agent 的全局记忆」，不要静默。
+
 ## 结构预设：先判断项目是什么，再选
 
 | profile | 建的目录 | 适用 |
@@ -95,6 +118,7 @@ python check_project.py --scan "<工作区根>" --depth 2   # 批量
 ## 自定义
 
 - 规范正文：`assets/AGENTS.template.md`（占位符 `{{PROJECT_NAME}} {{PROJECT_TYPE}} {{TECH_STACK}} {{VERSION}} {{STRUCTURE_ROWS}} {{SOFTWARE_SECTION}}`）。改后递增 `init_project.py` 的 `VERSION`，老项目用 `--upgrade` 同步。
+- 全局触发规则：`assets/global-rule.md`（改这里，然后 `ensure_rule.py --apply` 分发到各 agent）。
 - 开发流程段落：`assets/sections/software.md`（程序项目）与 `assets/sections/plain.md`（非程序项目）。
 - 程序项目文档模板：`assets/software/`。
 - 结构预设：`init_project.py` 的 `PROFILES`；agent 入口：`ADAPTERS`；接管启发式：`KEEP_ROOT / DOC_EXTS / CODE_EXTS / TMP_EXTS`。
@@ -104,10 +128,11 @@ python check_project.py --scan "<工作区根>" --depth 2   # 批量
 
 ```bash
 python scripts/init_project.py %TEMP%\pi-min --model T && python scripts/check_project.py %TEMP%\pi-min   # 应 0E 0W
-python scripts/init_project.py %TEMP%\pi-sw --profile software --model T                                 # 四份顶层文档就位
+python scripts/init_project.py %TEMP%\pi-sw --profile software --model T                                 # 四份顶层文档 + 各自 .log.md
 python scripts/check_project.py %TEMP%\pi-sw --fix --model T                                             # 补记忆/日志
 python scripts/check_project.py --scan %TEMP% --depth 1                                                  # 批量
 python scripts/init_project.py %TEMP%\pi-min --upgrade                                                   # 同版本应报「已是最新」
+python scripts/ensure_rule.py                                                                            # 再跑一次应全部「已登记」
 ```
 
 违规样例：`docs/报告_v2.md`（含「作为一个AI」）应报 E 副本 + E 痕迹；`docs/方案.md` 没有 `方案.log.md` 应报 E 缺日志；日志条目缺 `模型：` 应报 E；`docs/数据 (1).md` 应报 E 命名（特殊字符 + 副本）；`docs/20260928-记录.md` 报 W 含日期；根目录放未登记的 `index.html` 应报 W 并在结构表补一行后消失。
