@@ -128,8 +128,10 @@ MEMORY_TPL = """# {name} — 项目记忆
 """
 
 
-def gitignore_text(has_tmp: bool) -> str:
-    head = "# 临时区不入库\ntmp/\n" if has_tmp else ""
+def gitignore_text(untracked: list[str]) -> str:
+    head = ""
+    if untracked:
+        head = "# 临时区不入库（随时可清空）\n" + "".join(f"{d}/\n" for d in untracked)
     return head + """# 操作系统垃圾
 Thumbs.db
 desktop.ini
@@ -144,6 +146,10 @@ node_modules/
 dist/
 build/
 """
+
+
+# 这些目录默认视为临时区（入库=否，并写进 .gitignore）
+UNTRACKED_DIRS = {"tmp", "temp", "inbox"}
 
 
 def parse_structure_rows(text: str) -> list[tuple[str, str, str]] | None:
@@ -356,9 +362,10 @@ def main() -> int:
         nm = nm.strip().rstrip("/")
         if not nm:
             continue
-        tracked = "否" if nm in ("tmp", "temp") else "是"
+        tracked = "否" if nm in UNTRACKED_DIRS else "是"
         rows.append((nm + "/", purpose.strip() or "（待补充职责）", tracked))
     dirs = [p.rstrip("/") for p, _, _ in rows if p.endswith("/")]
+    untracked_dirs = [p.rstrip("/") for p, _, t in rows if p.endswith("/") and t == "否"]
 
     ptype = args.ptype or preset["type"]
     project_name = args.name or root.name
@@ -415,7 +422,7 @@ def main() -> int:
     print(f"[目录] {', '.join(d + '/' for d in dirs)} 就绪（profile={profile}）")
 
     # 3) .gitignore
-    write(".gitignore", gitignore_text("tmp" in dirs), ".gitignore")
+    write(".gitignore", gitignore_text(untracked_dirs), ".gitignore")
 
     # 4) AGENTS.md —— 唯一规范来源
     write("AGENTS.md", render_template(project_name, ptype, stack, rows), "AGENTS.md")
@@ -462,6 +469,14 @@ def main() -> int:
 
     # 8) README
     write("README.md", README_TPL.format(name=project_name), "README.md")
+
+    # 8.5) 空的自定义目录补 .gitkeep，否则 git 不跟踪、结构表声明了却看不见
+    for p, _, t in rows:
+        if not p.endswith("/") or t != "是":
+            continue
+        base = root / p.rstrip("/")
+        if base.is_dir() and not any(base.iterdir()):
+            write(f"{p.rstrip('/')}/.gitkeep", "", p)
 
     # 9) 接管分析（不自动提交用户已有文件）
     if args.adopt:
