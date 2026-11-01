@@ -21,6 +21,7 @@
   W1  SKILL.md 超过 300 行（该考虑拆到 references/ 或 scripts/）
   W2  目录里有 __pycache__ / .DS_Store / node_modules 等垃圾
   W3  description 和正文都没有说明「何时用」，触发准确率会低
+  W4  references/ 或 templates/ 里有文件，正文从没提过（agent 不知道它存在）
       （description 里写了 Triggers/触发词，或正文有「何时使用」段，都算合格）
 
 退出码：0 无 error；1 有 error；--strict 下 warning 也算失败。
@@ -125,6 +126,21 @@ def check_skill(d: pathlib.Path) -> tuple[list[str], list[str]]:
 
     if not WHEN_RE.search(text) and not TRIGGER_RE.search(desc):
         warns.append("W3 description 和正文都没写「何时用」，触发准确率会低")
+
+    # W4：只查 references/ 和 templates/，不查 scripts/。
+    # 脚本可以是内部实现（被别的脚本调用，或只由某个 .cmd 间接调用），
+    # 正文不提是正常的；但参考文档和模板写了没人读，就是白放。
+    for sub in ("references", "templates"):
+        d = d / sub
+        if not d.is_dir():
+            continue
+        for f in sorted(d.rglob("*")):
+            if not f.is_file() or f.name.startswith("."):
+                continue
+            rel = str(f.relative_to(d.parent)).replace("\\", "/")
+            if rel in text or f.name in text:
+                continue
+            warns.append(f"W4 `{rel}` 存在但正文没提，agent 不会去读")
 
     return errs, warns
 

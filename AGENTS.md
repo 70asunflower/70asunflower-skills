@@ -56,11 +56,13 @@ python scripts/skillsync.py doctor          # 必须回到「问题数: 0」
 - **引用必须存在**：正文里写 `scripts/x.py`、`references/y.md` 就必须真有这个文件；
   有 `scripts/` 目录就必须在正文里说怎么用
 
-三条建议（warning）：
+四条建议（warning）：
 
 - SKILL.md 超 300 行 → 细节拆到 `references/` 或 `scripts/`
 - 目录里不留 `__pycache__` / `.DS_Store`
 - description 或正文里要有一句「何时用」（`Triggers:` 或「何时使用」段），否则路由不准
+- **`references/` 和 `templates/` 里每个文件都要在正文提到**——写了没人读等于白放。
+  `scripts/` 不查，因为脚本可以是内部实现（被别的脚本或 `.cmd` 间接调用）
 
 ## 提交署名：用当前模型名
 
