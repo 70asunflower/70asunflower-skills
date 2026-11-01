@@ -49,7 +49,7 @@ D:\Project\workspace\my_github\my-skills\   ← 唯一真相源（git，公开�
 ```bash
 python scripts/skillsync.py status        # 每个 agent 每个技能的状态矩阵
 python scripts/skillsync.py scan          # 多份副本的漂移分类报告
-python scripts/skillsync.py doctor        # 断链、链式嵌套、主库含链接等结构问题
+python scripts/skillsync.py doctor        # 断链、链式嵌套、主库含链接；豁免项不计入问题数
 python scripts/skillsync.py adopt         # 收编散落副本进仓库（默认 dry-run）
 python scripts/skillsync.py link          # 把仓库技能分发到各 agent（默认 dry-run）
 python scripts/skillsync.py gitignore     # 刷新 .gitignore 第三方区块
@@ -93,7 +93,7 @@ git commit --no-verify                          # 临时跳过
 
 **Antigravity Windows 扫描机制**：Antigravity 底层在 Windows 下通过标准 `io/fs` 扫描，会跳过 `~/.gemini/config/skills/` 内部的二级 Junction 目录。因此 Antigravity 统一采用原生声明式配置 `~/.gemini/config/skills.json` 直接挂载主库真实路径，绕过子目录 Junction 限制。
 
-**链式链接**：junction 指向另一个 agent 的目录（如 workbuddy→zcode→codex）会造成三层套娃，中间一层挪动全断。所有链接必须直接指向仓库。`doctor` 会把这类问题全部列出。
+**链式链接**：junction 指向另一个 agent 的目录（如 workbuddy→zcode→codex）会造成三层套娃，中间一层挪动全断。所有链接必须直接指向仓库。`doctor` 会把这类问题列出，但 baseline 里 `intentional` 的会标成「已豁免」且不计入问题数——它和提交闸门读同一份基线，两边不会给出相反结论。
 
 **冲突保护**：若某 agent 目录的真实副本与仓库正文（SKILL.md 去掉 frontmatter 后）不同，`link` 会自动隔离该技能，既不分发也不回链——因为分发会把仓库版本塞给别的 agent，回链会丢掉 agent 侧的改动。这类必须人工定夺。
 

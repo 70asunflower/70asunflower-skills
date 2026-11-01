@@ -392,10 +392,29 @@ def cmd_scan(cfg, args):
 
 # ---------------------------------------------------------------- doctor
 
+def load_baseline(hub: Path) -> dict:
+    """读豁免基线（scripts/skillsync-baseline.json）。
+
+    语义定义在 precommit.py 里：intentional = 设计上就不共享（第三方技能按渠道
+    各自保留），chained = 待修欠账。doctor 必须读同一份基线，否则会把设计上
+    保留的项当成问题报出来——和提交闸门给出相反的结论。
+    """
+    path = Path(hub) / "scripts" / "skillsync-baseline.json"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {"intentional": [], "chained": []}
+    data.setdefault("intentional", [])
+    data.setdefault("chained", [])
+    return data
+
+
 def cmd_doctor(cfg, args):
     col = collect(cfg)
     hub = hub_skills(cfg)
     agents = [a for a in cfg["agents"] if not col[a]["__absent__"]]
+    baseline = load_baseline(cfg["hub"])
+    exempt = set(baseline["intentional"]) | set(baseline["chained"])
     issues = 0
 
     print(f"主库: {cfg['hub']}  exists={cfg['hub'].exists()}\n")
@@ -427,8 +446,15 @@ def cmd_doctor(cfg, args):
                 if same_path(tgt, Path(base) / name):
                     inner = col[a2]["skills"].get(name)
                     kind = "也指向别处" if inner and inner["kind"] == "link" else "是真实目录"
-                    print(f"[链式] {a}/{name} → {a2}/{name}（{kind}），应全部指向主库")
-                    issues += 1
+                    key = f"{a}/{name}"
+                    if key in exempt:
+                        # 仍打印成 [链式]，precommit 靠这行做「新增才拦截」和
+                        # --update-baseline 的统计；只是不计入问题数。
+                        print(f"[链式] {a}/{name} → {a2}/{name}（{kind}），"
+                              f"基线记为不共享，已豁免")
+                    else:
+                        print(f"[链式] {a}/{name} → {a2}/{name}（{kind}），应全部指向主库")
+                        issues += 1
                     break
 
     # 3 主库自身含链接
