@@ -1,8 +1,5 @@
 {
-  "intentional": [
-    "workbuddy/etfirst",
-    "workbuddy/neodata-financial-search"
-  ],
+  "intentional": [],
   "chained": [],
-  "note": "intentional=设计上不共享；chained=待修欠账，目标为空"
+  "note": "intentional=设计上不共享；chained=待修欠账，目标为空。etfirst/neodata-financial-search 已于 2026-11-01 收编进主库（第三方物理在仓不入库），双渠道 junction，不再各自保留"
 }
