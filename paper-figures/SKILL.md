@@ -152,7 +152,8 @@ PyMuPDF 渲染 PDF 为 300 DPI 基准图 $\to$ PowerPoint COM 无头静默导出
 - **物理印刷规范**：成品 60cm × 160cm（含 3mm 出血为 60.6cm × 160.6cm），安全边距 2.0cm，**底部必须留白 5.5–6.2 cm** 防止转轴吞字；
 - **PowerPoint 1:2 缩放铁律**：破除 Office 56 英寸限制，PPTX 严格设为 $30.0\text{ cm} \times 80.0\text{ cm}$，字号严格折半（**正文 $\ge 15.0\text{pt}$ 硬底线**）；
 - **黄金四段式版面**：Header 24cm $\to$ Sec1 22cm $\to$ Sec2 24cm $\to$ Sec3 56cm $\to$ Footer 24cm；
-- **模板与质检**：`template_poster_pdf.py` + `template_poster_pptx.py`，最后调用 `verify_visual_parity.py` 闭环。
+- **模板与质检**：`template_poster_pdf.py` + `template_poster_pptx.py` 出图，`check_poster_preflight.py` 做印前预检（画布尺寸 / 出血 / 字号下限 / 图片 DPI），最后 `verify_visual_parity.py` 闭环。
+- **海报专用图表**：`generate_poster_figures.py` 按海报卡片宽度（PPTX 25–28cm、PDF 50–56cm）反算 300 DPI 像素预算，避免放大后糊。
 
 ---
 
@@ -170,6 +171,8 @@ PyMuPDF 渲染 PDF 为 300 DPI 基准图 $\to$ PowerPoint COM 无头静默导出
 | **`template_graphical_abstract_pptx.py`** | 视觉摘要可编辑 PPTX 模板 | 基于 `pptx_core`，原生三段式模块，双击即改 |
 | **`template_poster_pdf.py`** | 易拉宝印刷级 PDF 模板 | ReportLab 60.6x160.6cm、CMYK、出血角线、底座留白 |
 | **`template_poster_pptx.py`** | 易拉宝 1:2 可编辑 PPTX 模板 | 30x80cm 规格、全原生矢量、正文字号 $\ge 15\text{pt}$ |
+| **`check_poster_preflight.py`** | 海报印前预检 | 画布尺寸、出血、字号下限、图片 DPI 一次查完，交付前跑 |
+| **`generate_poster_figures.py`** | 海报专用图表模板 | matplotlib 300 DPI，按卡片实际宽度反算像素预算 |
 | **`canvas.py`** | 坐标画布协议与碰撞检测 | `Canvas(fig)`，输出 `*_grid.png` 与 `*_layout.txt` 坐标清单 |
 | **`pptx_to_vector.py`** | PPT 示意图转出版级矢量 PDF | COM 导出整副 PDF + PyMuPDF 实测包围盒裁切 |
 | **`preview.py`** | 图渲染成 PNG 供 agent 看 | `--clip` 只渲局部；`--violations` 自动逐条渲违例区域；PyMuPDF 直出零依赖 |
