@@ -35,7 +35,7 @@ try:
 except Exception:
     pass
 
-VERSION = "2.0.0"
+VERSION = "2.1.0"
 SKILL_DIR = Path(__file__).resolve().parent.parent
 TEMPLATE = SKILL_DIR / "assets" / "AGENTS.template.md"
 SOFTWARE_TPL_DIR = SKILL_DIR / "assets" / "software"
@@ -104,12 +104,12 @@ README_TPL = """# {name}
 ## 协作
 
 任何 AI Agent 与协作者开始工作前，必须阅读 [AGENTS.md](AGENTS.md) 并遵守。
-项目长期记忆在 `memory/MEMORY.md`，当日工作日志在 `memory/<日期>.md`。
+项目长期记忆在 `memory/MEMORY.md`；每个正式文件旁边都有一份同名 `.log.md` 记录修改人与模型。
 """
 
 MEMORY_TPL = """# {name} — 项目记忆
 
-> 长期记忆：项目是什么、关键决策、约定与坑。日常流水账写 `memory/<日期>.md`，不要写这里。
+> 长期记忆：项目是什么、关键决策、约定与坑。日常改动记在各文件的 `.log.md`，不要写这里。
 > 过时的条目直接删掉，别标记作废——历史在 git 里。
 
 ## 项目是什么
@@ -118,9 +118,9 @@ MEMORY_TPL = """# {name} — 项目记忆
 
 ## 关键决策
 
-| 日期 | 决策 | 理由 |
-|------|------|------|
-| {today} | 采用 `{profile}` 结构预设 | 项目初始化时的判断，后续可改本节与 AGENTS.md 结构表 |
+| 日期 | 决策 | 理由 | 模型 |
+|------|------|------|------|
+| {today} | 采用 `{profile}` 结构预设 | 项目初始化时的判断，后续可改本节与 AGENTS.md 结构表 | {model} |
 
 ## 约定与坑
 
@@ -166,23 +166,19 @@ def parse_structure_rows(text: str) -> list[tuple[str, str, str]] | None:
     return rows
 
 
-def render_template(project_name: str, ptype: str, stack: str, log_mode: str,
+def render_template(project_name: str, ptype: str, stack: str,
                     rows: list[tuple[str, str, str]]) -> str:
     tpl = TEMPLATE.read_text(encoding="utf-8") if TEMPLATE.exists() else \
         "# 项目协作规范\n\n（模板缺失，请补全 assets/AGENTS.template.md）\n"
     table = "\n".join(f"| `{p}` | {u} | {t} |" for p, u, t in rows)
     sec = SECTION_SOFTWARE if "软件" in ptype else SECTION_PLAIN
     software_section = sec.read_text(encoding="utf-8").rstrip() if sec.exists() else "## 5. 开发流程\n\n（缺失）\n"
-    per_file = ("- **逐文件日志**：本项目采用逐文件日志，每个正式文件另配同名 `<主名>.log.md`，"
-                "格式同上，与该文件同目录。\n") if log_mode == "逐文件" else ""
     return (tpl.replace("{{PROJECT_NAME}}", project_name)
                .replace("{{PROJECT_TYPE}}", ptype)
                .replace("{{TECH_STACK}}", stack)
                .replace("{{VERSION}}", VERSION)
-               .replace("{{LOG_MODE}}", log_mode)
                .replace("{{STRUCTURE_ROWS}}", table)
-               .replace("{{SOFTWARE_SECTION}}", software_section)
-               .replace("{{PER_FILE_NOTE}}", per_file))
+               .replace("{{SOFTWARE_SECTION}}", software_section))
 
 
 def run_git(repo: Path, *args: str, author: str | None = None) -> tuple[int, str]:
@@ -290,7 +286,6 @@ def do_upgrade(root: Path, model: str) -> int:
     name = field(r"^-\s*项目名称[：:]\s*(.+)$", root.name)
     stack = field(r"^-\s*技术栈[：:]\s*(.+)$", "（未填写；可编辑本行或用 --stack 指定）")
     ptype = field(r"^-\s*项目类型[：:]\s*(.+)$", "")
-    log_mode = field(r"^-\s*日志模式[：:]\s*(.+)$", "项目日志")
     mver = re.search(r"规范版本[：:]\s*(\S+)", cur)
     curver = mver.group(1) if mver else "未知"
 
@@ -305,7 +300,7 @@ def do_upgrade(root: Path, model: str) -> int:
     if not ptype:
         ptype = "软件" if any(p.startswith(("code/", "src/")) for p, _, _ in rows) else "文档"
 
-    new = render_template(name, ptype, stack, log_mode, rows)
+    new = render_template(name, ptype, stack, rows)
     if cur == new:
         print(f"[升级] 已是最新规范版本 {VERSION}，无需操作")
         return 0
@@ -322,9 +317,10 @@ def do_upgrade(root: Path, model: str) -> int:
     print(f"\n[升级] 当前版本 {curver} → 新模板 {VERSION}")
     print(f"[升级] 新模板已写入 {out.relative_to(root).as_posix()}；逐段核对后手动合并到 AGENTS.md"
           f"（规范文件修改须经所有者确认），合并后删除该临时文件并提交。")
-    if rows is not None and curver != "未知" and not curver.startswith("2."):
-        print("[升级] 1.x → 2.x 要点：结构表取代固定的 docs/code/tmp；新增 memory/ 记忆与日志；"
-              "agent 入口改为按需自建。合并后请按新规范补建 memory/MEMORY.md 与当日日志。")
+    if curver != "未知" and not curver.startswith(VERSION[:2]):
+        print("[升级] 要点：结构表取代固定的 docs/code/tmp；新增 memory/MEMORY.md 项目记忆；"
+              "每个正式文件必须配同名 .log.md 且条目带「模型：」；agent 入口改为按需自建。"
+              "合并后用 check_project.py --fix 补建缺失的日志与记忆文件。")
     return 0
 
 
@@ -338,7 +334,6 @@ def main() -> int:
     ap.add_argument("--model", default=None, help="当前 agent 的模型官方名，写入首条日志与首次提交署名")
     ap.add_argument("--name", default=None, help="项目名，默认取目录名")
     ap.add_argument("--stack", default=None, help="技术栈描述，写入 AGENTS.md")
-    ap.add_argument("--log-mode", default="项目日志", choices=["项目日志", "逐文件"], help="日志模式（默认项目日志）")
     ap.add_argument("--for", dest="agents", default="none",
                     help="none(默认，由各 agent 按需自建) | all | claude,gemini,qwen,cursor,windsurf,cline,copilot")
     ap.add_argument("--adopt", action="store_true", help="接管已有项目：补底线并输出迁移建议")
@@ -371,18 +366,28 @@ def main() -> int:
     model = (args.model or "").strip()
     now = datetime.now()
     today = now.strftime("%Y-%m-%d")
+    stamp = now.strftime("%Y-%m-%d %H:%M")
+    who = model or "未声明（初始化脚本未收到 --model）"
     created: list[str] = []
     skipped: list[str] = []
     had_preexisting = any(root.iterdir())
 
-    def write(rel: str, content: str, label: str) -> None:
+    def write(rel: str, content: str, label: str, log_purpose: str = "") -> None:
         f = root / rel
         f.parent.mkdir(parents=True, exist_ok=True)
         if f.exists() and not args.force:
             skipped.append(label)
+        else:
+            f.write_text(content, encoding="utf-8", newline="\n")
+            created.append(label)
+        if not log_purpose:
             return
-        f.write_text(content, encoding="utf-8", newline="\n")
-        created.append(label)
+        lg = f.parent / (f.stem + ".log.md")
+        if lg.exists():
+            return
+        lg.write_text(f"## {stamp} — 创建\n- 模型：{who}\n- 摘要：{log_purpose}\n- 原因：项目初始化\n",
+                      encoding="utf-8", newline="\n")
+        created.append(lg.relative_to(root).as_posix())
 
     # 1) 底线：git
     new_repo = False
@@ -413,28 +418,34 @@ def main() -> int:
     write(".gitignore", gitignore_text("tmp" in dirs), ".gitignore")
 
     # 4) AGENTS.md —— 唯一规范来源
-    write("AGENTS.md", render_template(project_name, ptype, stack, args.log_mode, rows), "AGENTS.md")
+    write("AGENTS.md", render_template(project_name, ptype, stack, rows), "AGENTS.md")
 
-    # 5) 底线：项目记忆 + 当日日志（日志条目必须带模型）
-    write("memory/MEMORY.md", MEMORY_TPL.format(name=project_name, today=today, profile=profile), "memory/MEMORY.md")
+    # 5) 底线：项目长期记忆 + 项目日日志
+    write("memory/MEMORY.md",
+          MEMORY_TPL.format(name=project_name, today=today, profile=profile, model=model or "未声明"),
+          "memory/MEMORY.md")
     write(f"memory/{today}.md",
-          f"## {now.strftime('%Y-%m-%d %H:%M')} — 项目初始化\n"
-          f"- 模型：{model or '未声明（初始化脚本未收到 --model）'}\n"
-          f"- 摘要：建立 git 仓库、AGENTS.md（v{VERSION}）、项目记忆与日志；结构 profile={profile}"
+          f"## {stamp} — 项目初始化\n"
+          f"- 模型：{who}\n"
+          f"- 摘要：建立 git 仓库、AGENTS.md（v{VERSION}）、项目记忆与日日志；结构 profile={profile}"
           f"（{', '.join(d + '/' for d in dirs) or '仅根目录'}）\n"
           f"- 原因：项目初始化\n",
           f"memory/{today}.md")
 
-    # 6) 程序项目脚手架（仅 software 预设）
+    # 6) 程序项目脚手架（仅 software 预设）；正式文件一律配同名 .log.md
     if profile == "software":
         for nm in ("PRD.md", "Design.md", "TDD.md", "开发进度.md"):
             tpl = SOFTWARE_TPL_DIR / nm
             content = tpl.read_text(encoding="utf-8") if tpl.exists() else \
                 f"# {nm}\n\n（模板缺失，请补全 skill 的 assets/software/{nm}）\n"
-            write(f"docs/{nm}", content, f"docs/{nm}")
+            purpose = {"PRD.md": "产品需求文档：做什么、为什么做",
+                       "Design.md": "设计文档：整体怎么做",
+                       "TDD.md": "技术设计文档：选型、架构、测试策略",
+                       "开发进度.md": "开发进度台账：功能状态、缺陷记录、审核结论"}.get(nm, "顶层文档")
+            write(f"docs/{nm}", content, f"docs/{nm}", log_purpose=purpose)
         (root / "docs" / "features").mkdir(exist_ok=True)
         write("docs/features/.gitkeep", "", "docs/features/")
-        print("[软件] docs/ 顶层文档（PRD/Design/TDD/开发进度）与 features/ 就绪")
+        print("[软件] docs/ 顶层文档（PRD/Design/TDD/开发进度）与 features/ 就绪（均已配 .log.md）")
 
     # 7) agent 入口：默认一个都不建，交给各 agent 首次进入时自建
     sel = args.agents.strip().lower()
@@ -480,7 +491,7 @@ def main() -> int:
     if skipped:
         print("已存在而跳过（--force 可覆盖）: " + ", ".join(skipped))
     if not model:
-        print("提醒: 未传 --model，首条日志记为「未声明」。下次开工时把模型官方名补进日志条目。")
+        print("提醒: 未传 --model，日志条目记为「未声明」。开工时把模型官方名补进 .log.md 条目。")
     print("提示: 本会话后续工作请遵守项目内 AGENTS.md；可用 check_project.py 做规范巡检。")
     return 0
 

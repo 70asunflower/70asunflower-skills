@@ -85,7 +85,7 @@ Antigravity 不支持 junction，走 `~/.gemini/config/skills.json` 原生声明
 | 技能 | 说明 |
 |---|---|
 | [agent-skills-sync](./agent-skills-sync/) | 多 agent（WorkBuddy/Claude/Codex/ZCode/Gemini）共享用户级技能的单一真相源：junction 分发、状态矩阵、漂移分类与冲突保护 |
-| [project-init](./project-init/) | 项目底线生成器：git + AGENTS.md（唯一规范来源）+ `memory/` 记忆与日志（每条带模型 id）；结构按 minimal/docs/software 预设或自定义声明，agent 入口由各 agent 按需自建；含接管/升级/巡检 |
+| [project-init](./project-init/) | 项目底线生成器：git + AGENTS.md（唯一规范来源）+ 三层留痕（项目记忆 / 项目日日志 / 逐文件 `.log.md`，条目带模型 id）+ 命名硬约束；结构按 minimal/docs/software 预设或自定义声明，agent 入口由各 agent 按需自建；含接管/升级/巡检 |
 | [project-review](./project-review/) | 项目六维审查评分 + 审计报告，与 project-init 互补 |
 | [notebook-patching](./notebook-patching/) | Jupyter Notebook (.ipynb) 与 IDE 打开状态下的受限文件快速安全修改工作流，规避内联转义与 Auto-Save 内存覆盖冲突 |
 | [3d-printing-cad-design](./3d-printing-cad-design/) | 3D 打印机械 CAD 全流程：build123d / CadQuery 参数化建模、水密性网格校验、STEP→GLB 离线预览、制造交付打包 |

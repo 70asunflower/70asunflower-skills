@@ -44,7 +44,7 @@ except Exception:
     pass
 
 VERSION = "2.0.0"
-SPEC_BASE = "project-init AGENTS.md v2.0.0"
+SPEC_BASE = "project-init AGENTS.md v2.1.0"
 
 DIMS = {
     "A": ("文档完整性", 25), "B": ("命名与存放", 15), "C": ("修改留痕", 20),
@@ -215,27 +215,33 @@ def scan_markdown(path: Path, root: Path) -> None:
 
 
 def scan_names(root: Path) -> None:
-    for sub in ("docs", "code"):
+    """命名与存放：占位名/特殊字符/(1) 副本按 E（硬伤），日期按 W（可能是内容本身）。"""
+    rows = declared_structure(root)
+    if rows:
+        dirs = [p.rstrip("/") for p, _, t in rows if p.endswith("/") and t == "是"]
+    else:
+        dirs = ["docs", "code"]
+    for sub in [d for d in dirs if d not in ("memory", "tmp", "temp")]:
         base = root / sub
         if not base.is_dir():
             continue
         for f in iter_entries(base):
-            if f.name == ".gitkeep" or in_releases(f, root):
+            if f.name == ".gitkeep" or f.name.endswith(".log.md") or in_releases(f, root):
                 continue
             rel = f.relative_to(root).as_posix()
             stem = f.stem
             bad = sorted({ch for ch in f.name if ch in BAD_NAME_CHARS})
             if bad:
-                add("W", "B", "命名不规范", rel, "含空格/特殊字符: " + " ".join(repr(c) for c in bad), 5)
+                add("E", "B", "命名不规范", rel, "含空格/特殊字符: " + " ".join(repr(c) for c in bad), 8)
             if PLACEHOLDER_NAME.match(stem):
-                add("W", "B", "命名不规范", rel, "占位/无意义命名，应见名知义", 5)
+                add("E", "B", "命名不规范", rel, "占位/无意义命名，应见名知义", 8)
             if DUPLICATE_NAME.search(stem):
-                add("W", "B", "疑似重复副本", rel, "如「(1)」式命名，应就地迭代或交给 git", 5)
+                add("E", "B", "疑似重复副本", rel, "如「(1)」式命名，应就地迭代或交给 git", 8)
             if DATE_IN_NAME.search(stem):
-                add("W", "B", "文件名含日期", rel, "时效信息应交给 git 与 .log.md", 5)
+                add("W", "B", "文件名含日期", rel, "时效信息应交给 git 与 .log.md；若日期属内容本身需在日志说明", 5)
             if VERSIONISH.search(f.name):
                 add("E", "B", "版本副本增殖", rel, "应就地迭代原文件，历史交给 git", 10)
-            # 存放错位
+            # 存放错位（仅对经典 docs/code 有意义）
             if sub == "docs" and f.suffix.lower() in CODE_STRICT_EXTS:
                 add("W", "B", "存放错位", rel, "代码文件应放 code/", 4)
             if sub == "code" and f.suffix.lower() in DOC_HEAVY_EXTS:
@@ -288,40 +294,84 @@ def check_docs_quality(root: Path) -> None:
 
 
 def scan_logs(root: Path) -> None:
-    docs = root / "docs"
-    if not docs.is_dir() or not per_file_logs(root):
+    """逐文件日志（强制）：每个正式文件有同名 .log.md、非空壳、条目带「模型：」。"""
+    rows = declared_structure(root)
+    if rows:
+        dirs = [p.rstrip("/") for p, _, t in rows if p.endswith("/") and t == "是"]
+    else:
+        dirs = ["docs", "code"]
+    for sub in [d for d in dirs if d not in ("memory", "tmp", "temp")]:
+        base = root / sub
+        if not base.is_dir():
+            continue
+        for f in iter_entries(base):
+            if f.name.startswith(".") or in_releases(f, root):
+                continue
+            rel = f.relative_to(root).as_posix()
+            if f.name.endswith(".log.md"):
+                text = read_text(f)
+                entries = [i for i, ln in enumerate(text.splitlines(), 1) if ln.startswith("## ")]
+                if not entries:
+                    add("W", "C", "日志空壳", rel, "日志存在但无「## 时间 — 摘要」条目", 6)
+                    continue
+                lines = text.splitlines()
+                for idx, line_no in enumerate(entries):
+                    end = entries[idx + 1] - 1 if idx + 1 < len(entries) else len(lines)
+                    block = "\n".join(lines[line_no - 1:end])
+                    if "模型：" not in block and "模型:" not in block:
+                        add("E", "C", "日志缺模型", rel,
+                            "每条日志必须写明「模型：<模型官方名>」，否则无法追溯是谁改的", 8)
+                continue
+            if not (f.parent / (f.stem + ".log.md")).exists():
+                add("E", "C", "缺修改日志", rel, f"每个正式文件必须配同名日志 {f.stem}.log.md", 8)
+
+
+def check_project_memory(root: Path) -> None:
+    """项目记忆与项目日日志：存在性 + 日日志条目带「模型：」。"""
+    mem = root / "memory"
+    if not (mem / "MEMORY.md").exists():
+        add("E", "A", "缺项目记忆", "memory/MEMORY.md", "底线要求：项目长期记忆文件必须存在", 10)
+    logs = sorted(p for p in mem.glob("*.md") if re.fullmatch(r"\d{4}-\d{2}-\d{2}\.md", p.name)) if mem.is_dir() else []
+    if not logs:
+        add("E", "A", "缺项目日日志", "memory/", "底线要求：项目日日志 memory/<YYYY-MM-DD>.md 至少一份", 10)
         return
-    for f in iter_entries(docs):
-        if f.name.startswith(".") or in_releases(f, root):
+    for f in logs:
+        lines = read_text(f).splitlines()
+        entries = [i for i, ln in enumerate(lines, 1) if ln.startswith("## ")]
+        if not entries:
+            add("W", "C", "日日志空壳", f.relative_to(root).as_posix(), "日日志存在但无条目", 6)
             continue
-        rel = f.relative_to(root).as_posix()
-        log = f.parent / (f.stem + ".log.md")
-        if f.name.endswith(".log.md"):
-            if "修改者" not in read_text(f):
-                add("W", "C", "日志空壳", rel, "日志存在但无任何条目", 6)
-            continue
-        if not log.exists():
-            add("W", "C", "缺修改日志", rel, f"应有同名日志 {f.stem}.log.md", 8)
+        for idx, line_no in enumerate(entries):
+            end = entries[idx + 1] - 1 if idx + 1 < len(entries) else len(lines)
+            if "模型：" not in "\n".join(lines[line_no - 1:end]) and \
+               "模型:" not in "\n".join(lines[line_no - 1:end]):
+                add("E", "C", "日日志缺模型", f.relative_to(root).as_posix(),
+                    "每条日日志必须写明「模型：<模型官方名>」", 8)
 
 
 def scan_code_comments(root: Path) -> None:
-    code = root / "code"
-    if not code.is_dir():
-        return
-    for f in iter_entries(code):
-        if f.suffix.lower() not in CODE_EXTS:
+    """代码注释的 AI 痕迹：扫结构表里所有入库目录（不只 code/）。"""
+    rows = declared_structure(root)
+    dirs = ([p.rstrip("/") for p, _, t in rows if p.endswith("/") and t == "是"]
+            if rows else ["code"])
+    for sub in [d for d in dirs if d not in ("memory", "tmp", "temp")]:
+        base = root / sub
+        if not base.is_dir():
             continue
-        rel = f.relative_to(root).as_posix()
-        for i, ln in enumerate(read_text(f).splitlines(), 1):
-            s = ln.strip()
-            if not s.startswith(COMMENT_PREFIXES):
+        for f in iter_entries(base):
+            if f.suffix.lower() not in CODE_EXTS:
                 continue
-            for p in AI_PHRASES_E:
-                if p in s:
-                    add("E", "A", "注释AI痕迹", rel, f"命中「{p}」", 5, i)
-            hits = sorted({ch for ch in s if is_emoji(ch)})
-            if hits:
-                add("E", "A", "注释emoji", rel, "字符: " + " ".join(hits), 5, i)
+            rel = f.relative_to(root).as_posix()
+            for i, ln in enumerate(read_text(f).splitlines(), 1):
+                s = ln.strip()
+                if not s.startswith(COMMENT_PREFIXES):
+                    continue
+                for p in AI_PHRASES_E:
+                    if p in s:
+                        add("E", "A", "注释AI痕迹", rel, f"命中「{p}」", 5, i)
+                hits = sorted({ch for ch in s if is_emoji(ch)})
+                if hits:
+                    add("E", "A", "注释emoji", rel, "字符: " + " ".join(hits), 5, i)
 
 
 # ---------- E 维: 敏感信息 ----------
@@ -581,19 +631,6 @@ audit_git.stats = {}
 
 # ---------- 结构基线 ----------
 
-def agents_field(root: Path, key: str) -> str:
-    p = root / "AGENTS.md"
-    if not p.exists():
-        return ""
-    m = re.search(rf"^-\s*{key}[：:]\s*(.+)$", read_text(p), re.M)
-    return m.group(1).strip() if m else ""
-
-
-def per_file_logs(root: Path) -> bool:
-    """日志模式为「逐文件」才查同名 .log.md；1.x 老规范无该字段，按逐文件处理。"""
-    return agents_field(root, "日志模式") in ("", "逐文件")
-
-
 def declared_structure(root: Path) -> list[tuple[str, str, str]] | None:
     """读 AGENTS.md 结构表；无该区块（1.x 老规范）返回 None。"""
     p = root / "AGENTS.md"
@@ -747,9 +784,13 @@ def review(root: Path, n_commits: int) -> None:
     findings.clear()
     audit_git.stats = {}
     check_structure(root)
-    docs = root / "docs"
-    if docs.is_dir():
-        for f in iter_entries(docs):
+    rows = declared_structure(root)
+    scan_dirs = ([root / p.rstrip("/") for p, _, t in rows if p.endswith("/") and t == "是"]
+                 if rows else [root / "docs"])
+    for base in scan_dirs:
+        if not base.is_dir() or base.name == "memory":
+            continue
+        for f in iter_entries(base):
             if f.name.startswith(".") or in_releases(f, root):
                 continue
             if f.name.endswith(".log.md"):
@@ -760,6 +801,7 @@ def review(root: Path, n_commits: int) -> None:
     scan_duplicates(root)
     check_releases(root)
     check_docs_quality(root)
+    check_project_memory(root)
     scan_logs(root)
     scan_code_comments(root)
     scan_secrets(root)

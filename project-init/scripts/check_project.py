@@ -8,11 +8,12 @@
 检查依据是项目 AGENTS.md：第 1 节的结构表决定「什么该在哪」，头部字段决定类型与日志模式。
 1.x 老规范（无结构表）按 docs/code/tmp 兜底并提示升级。
 
-[E] 底线类 —— 不是 git 仓库；缺 AGENTS.md；缺 memory/MEMORY.md 或工作日志；
-    日志条目缺「模型：」；版本副本增殖；正式产出 AI 痕迹；台账与功能文档状态不一致
-[W] 警告   —— 声明了但未建的目录；根目录散落；缺日志/空壳日志；程序项目缺顶层文档；
-            命名不规范；非 UTF-8；未跟踪正式文件；tmp 被跟踪；日志久未更新
-[I] 提示   —— 未提交变更；临时区积压
+[E] 底线类 —— 不是 git 仓库；缺 AGENTS.md；缺 memory/MEMORY.md 或项目日日志；
+    日志条目缺「模型：」；正式文件缺同名 .log.md；版本副本增殖；
+    命名硬伤（占位名、空格/特殊字符、`(1)` 副本）；正式产出 AI 痕迹；台账与功能文档状态不一致
+[W] 警告   —— 声明了但未建的目录；根目录散落；文件名含日期；程序项目缺顶层文档；
+            日日志久未更新；非 UTF-8；未跟踪正式文件；tmp 被跟踪
+[I] 提示   —— 未提交变更；临时区积压；日日志超过 60 份
 退出码: 存在错误级问题时为 1。除 --fix 外全程只读。
 """
 from __future__ import annotations
@@ -126,7 +127,7 @@ def run_git(repo: Path, *args: str) -> tuple[int, str]:
 
 def parse_header(text: str) -> dict[str, str]:
     out: dict[str, str] = {}
-    for key in ("项目名称", "项目类型", "技术栈", "规范版本", "日志模式"):
+    for key in ("项目名称", "项目类型", "技术栈", "规范版本"):
         m = re.search(rf"^-\s*{key}[：:]\s*(.+)$", text, re.M)
         if m:
             out[key] = m.group(1).strip()
@@ -189,24 +190,32 @@ def scan_markdown(path: Path, rel: str) -> None:
             add("E", "emoji", rel, i, "字符: " + " ".join(hits))
 
 
-def scan_names(root: Path, bases: list[Path]) -> None:
+def check_one_name(f: Path, root: Path) -> None:
+    """单个文件的命名规范。硬伤按 E（占位名/特殊字符/副本），日期按 W（数据文件可能有正当理由）。"""
+    if f.name == ".gitkeep" or f.name.endswith(".log.md") or in_releases(f, root):
+        return
+    rel = f.relative_to(root).as_posix()
+    stem = f.stem
+    bad = sorted({ch for ch in f.name if ch in BAD_NAME_CHARS})
+    if bad:
+        add("E", "命名不规范", rel, 0, "含空格/特殊字符: " + " ".join(repr(c) for c in bad))
+    if PLACEHOLDER_NAME.match(stem):
+        add("E", "命名不规范", rel, 0, "占位/无意义命名，应改为见名知义的名称")
+    if DUPLICATE_NAME.search(stem):
+        add("E", "命名不规范", rel, 0, "疑似重复副本命名（如「(1)」），应就地迭代或交给 git")
+    if DATE_IN_NAME.search(stem):
+        add("W", "命名不规范", rel, 0, "正式文件名含日期，时效应交给 git 与 .log.md；若日期属内容本身需在日志说明")
+
+
+def scan_names(root: Path, bases: list[Path], root_files: list[Path]) -> None:
     for base in bases:
         if not base.is_dir():
             continue
         for f in iter_entries(base):
-            if f.name == ".gitkeep" or in_releases(f, root):
-                continue
-            rel = f.relative_to(root).as_posix()
-            stem = f.stem
-            bad = sorted({ch for ch in f.name if ch in BAD_NAME_CHARS})
-            if bad:
-                add("W", "命名不规范", rel, 0, "含空格/特殊字符: " + " ".join(repr(c) for c in bad))
-            if PLACEHOLDER_NAME.match(stem):
-                add("W", "命名不规范", rel, 0, "占位/无意义命名，应改为见名知义的名称")
-            if DUPLICATE_NAME.search(stem):
-                add("W", "命名不规范", rel, 0, "疑似重复副本命名（如「(1)」），应就地迭代或交给 git")
-            if DATE_IN_NAME.search(stem):
-                add("W", "命名不规范", rel, 0, "正式文件名含日期，时效信息应交给 git 与日志")
+            check_one_name(f, root)
+    for f in root_files:
+        if f.is_file():
+            check_one_name(f, root)
 
 
 def scan_code_comments(root: Path, bases: list[Path]) -> None:
@@ -237,8 +246,26 @@ def in_releases(f: Path, root: Path) -> bool:
     return "releases" in f.relative_to(root).parts[:-1]
 
 
+def scan_log_file(f: Path, rel: str) -> None:
+    """同名 .log.md：条目非空壳，且每条必须写明「模型：」。"""
+    try:
+        lines = f.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return
+    entries = [(i, ln) for i, ln in enumerate(lines, 1) if ln.startswith("## ")]
+    if not entries:
+        add("W", "日志空壳", rel, 0, "日志存在但无「## 时间 — 摘要」条目")
+        return
+    for idx, (line_no, _) in enumerate(entries):
+        end = entries[idx + 1][0] - 1 if idx + 1 < len(entries) else len(lines)
+        block = "\n".join(lines[line_no - 1:end])
+        if "模型：" not in block and "模型:" not in block:
+            add("E", "日志缺模型", rel, line_no,
+                "每条日志必须写明「模型：<模型官方名>」，否则不知道是谁改的")
+
+
 def check_memory(root: Path, legacy: bool) -> None:
-    """底线：项目记忆与日志，日志条目必须带模型 id。"""
+    """底线：项目长期记忆 + 项目日日志（各文件的 .log.md 由主扫描负责）。"""
     mem = root / "memory"
     if legacy:
         if not (mem / "MEMORY.md").exists():
@@ -247,45 +274,26 @@ def check_memory(root: Path, legacy: bool) -> None:
         return
     if not (mem / "MEMORY.md").exists():
         add("E", "缺项目记忆", "memory/MEMORY.md", 0,
-            "底线要求：长期记忆文件必须存在（init_project.py 可补建）")
+            "底线要求：长期记忆文件必须存在（check --fix 可补建）")
     if not mem.is_dir():
         return
     logs = sorted(p for p in mem.glob("*.md") if LOG_DATE.match(p.name))
     if not logs:
-        add("E", "缺工作日志", "memory/", 0,
-            "底线要求：memory/<YYYY-MM-DD>.md 工作日志至少一份（init_project.py 可补建）")
+        add("E", "缺项目日日志", "memory/", 0,
+            "底线要求：整个项目的日日志 memory/<YYYY-MM-DD>.md 至少一份（check --fix 可补建）")
         return
-    # 每条 ## 条目必须有「模型：」
     for f in logs:
-        rel = f.relative_to(root).as_posix()
-        try:
-            lines = f.read_text(encoding="utf-8", errors="replace").splitlines()
-        except OSError:
-            continue
-        entries: list[tuple[int, str]] = []
-        for i, ln in enumerate(lines, 1):
-            if ln.startswith("## "):
-                entries.append((i, ln))
-        if not entries:
-            add("W", "日志空壳", rel, 0, "日志存在但无「## 时间 — 摘要」条目")
-            continue
-        for idx, (line_no, _) in enumerate(entries):
-            end = entries[idx + 1][0] - 1 if idx + 1 < len(entries) else len(lines)
-            block = "\n".join(lines[line_no - 1:end])
-            if "模型：" not in block and "模型:" not in block:
-                add("E", "日志缺模型", rel, line_no, "每条日志必须写明「模型：<模型官方名>」")
-    # 最近一份是否太久没更新
+        scan_log_file(f, f.relative_to(root).as_posix())
     last = logs[-1].name[:-3]
     try:
-        d = datetime.strptime(last, "%Y-%m-%d").date()
-        gap = (datetime.now().date() - d).days
+        gap = (datetime.now().date() - datetime.strptime(last, "%Y-%m-%d").date()).days
         if gap > LOG_STALE_DAYS:
-            add("W", "日志久未更新", f"memory/{logs[-1].name}", 0,
-                f"最近一条日志距今 {gap} 天，有改动应追加当日日志")
+            add("W", "日日志久未更新", f"memory/{logs[-1].name}", 0,
+                f"最近一条日日志距今 {gap} 天，有改动就该追加当天记录")
     except ValueError:
         pass
     if len(logs) > 60:
-        add("I", "日志偏多", "memory/", 0,
+        add("I", "日日志偏多", "memory/", 0,
             f"{len(logs)} 份日日志，可把已失效内容归并进 MEMORY.md 后删除旧文件（git 留底）")
 
 
@@ -410,23 +418,22 @@ def fix_project(root: Path, model: str, rows: list[tuple[str, str, str]] | None,
         log.write_text(entry("巡检补建", "补建当日日志"), encoding="utf-8", newline="\n")
         actions.append(f"补建 memory/{today}.md")
 
-    # 3) 逐文件日志模式：给缺日志的正式文件补建
-    if header.get("日志模式", "") == "逐文件":
-        for p, _, tracked in rows or []:
-            base = root / p.rstrip("/")
-            if not p.endswith("/") or tracked != "是" or p.rstrip("/") in ("memory", "tmp"):
+    # 3) 逐文件日志：给缺日志的正式文件补建（强制项，一律补）
+    for p, _, tracked in rows or []:
+        base = root / p.rstrip("/")
+        if not p.endswith("/") or tracked != "是" or p.rstrip("/") in ("memory", "tmp"):
+            continue
+        if not base.is_dir():
+            continue
+        for f in iter_entries(base):
+            if f.name.startswith(".") or f.name.endswith(".log.md") or in_releases(f, root):
                 continue
-            if not base.is_dir():
-                continue
-            for f in iter_entries(base):
-                if f.name.startswith(".") or f.name.endswith(".log.md") or in_releases(f, root):
-                    continue
-                lg = f.parent / (f.stem + ".log.md")
-                if not lg.exists():
-                    lg.write_text(entry("建档", f"为 {f.name} 补建日志"), encoding="utf-8", newline="\n")
-                    actions.append(f"补建日志 {lg.relative_to(root).as_posix()}")
+            lg = f.parent / (f.stem + ".log.md")
+            if not lg.exists():
+                lg.write_text(entry("建档", f"为 {f.name} 补建日志"), encoding="utf-8", newline="\n")
+                actions.append(f"补建日志 {lg.relative_to(root).as_posix()}")
 
-    # 4) 程序项目：顶层文档与功能文档骨架
+    # 4) 程序项目：顶层文档与功能文档骨架（一并补日志）
     docs = root / "docs"
     if "软件" in header.get("项目类型", "") and docs.is_dir():
         for nm in REQUIRED_SW_DOCS:
@@ -435,7 +442,9 @@ def fix_project(root: Path, model: str, rows: list[tuple[str, str, str]] | None,
             tpl = SOFTWARE_TPL_DIR / nm
             content = tpl.read_text(encoding="utf-8") if tpl.exists() else f"# {nm}\n\n（模板缺失）\n"
             (docs / nm).write_text(content, encoding="utf-8", newline="\n")
-            actions.append(f"补建顶层文档 docs/{nm}")
+            (docs / (Path(nm).stem + ".log.md")).write_text(
+                entry("创建", f"补建顶层文档 {nm}"), encoding="utf-8", newline="\n")
+            actions.append(f"补建顶层文档 docs/{nm}（含日志）")
         for row in parse_progress_rows(root, docs):
             if row["status"] in PROGRESS_TODO:
                 continue
@@ -445,7 +454,9 @@ def fix_project(root: Path, model: str, rows: list[tuple[str, str, str]] | None,
             t = root / expected
             t.parent.mkdir(parents=True, exist_ok=True)
             t.write_text(FEATURE_SKELETON.format(name=row["name"]), encoding="utf-8", newline="\n")
-            actions.append(f"补建功能文档 {expected}")
+            (t.parent / (t.stem + ".log.md")).write_text(
+                entry("创建", f"按台账补建功能文档 {row['name']}"), encoding="utf-8", newline="\n")
+            actions.append(f"补建功能文档 {expected}（含日志）")
     return actions
 
 
@@ -503,8 +514,7 @@ def run_project_check(root: Path) -> None:
             if VERSIONISH.search(f.name):
                 add("E", "版本副本增殖", f.relative_to(root).as_posix(), 0, "应就地迭代原文件，历史交给 git")
 
-    # 6) 正式产出 AI 痕迹 + 逐文件日志配对
-    per_file = header.get("日志模式", "") == "逐文件"
+    # 6) 正式产出 AI 痕迹 + 每个正式文件必须配同名 .log.md
     for base in scan_dirs:
         if not base.is_dir():
             continue
@@ -513,20 +523,20 @@ def run_project_check(root: Path) -> None:
                 continue
             rel = f.relative_to(root).as_posix()
             if f.name.endswith(".log.md"):
-                if "模型：" not in f.read_text(encoding="utf-8", errors="replace") and \
-                   "修改者" not in f.read_text(encoding="utf-8", errors="replace"):
-                    add("W", "日志空壳", rel, 0, "日志存在但无任何条目，应按格式补记录")
+                scan_log_file(f, rel)
                 continue
             if f.suffix == ".md":
                 scan_markdown(f, rel)
-            if per_file and not (f.parent / (f.stem + ".log.md")).exists():
-                add("W", "缺修改日志", rel, 0, f"日志模式为「逐文件」，应有同名日志 {f.stem}.log.md")
+            if not (f.parent / (f.stem + ".log.md")).exists():
+                add("E", "缺修改日志", rel, 0,
+                    f"每个正式文件必须配同名 {f.stem}.log.md（记修改人、模型、原因）")
 
     # 7) 代码注释 AI 痕迹
     scan_code_comments(root, scan_dirs)
 
-    # 8) 命名规范
-    scan_names(root, scan_dirs)
+    # 8) 命名规范（含结构表里登记的根文件）
+    root_files = [root / p for p, _, _ in rows if not p.endswith("/")]
+    scan_names(root, scan_dirs, root_files)
 
     # 9) 程序项目：顶层文档 + 台账一致性
     docs = root / "docs"
