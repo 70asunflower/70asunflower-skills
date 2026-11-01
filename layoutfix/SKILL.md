@@ -31,7 +31,7 @@ PY=python          # 本机装了 pymupdf 的解释器即可
 $PY layoutfix.py check  fig.svg              # 体检，人读
 $PY layoutfix.py check  fig.svg --json       # 给程序/agent 读
 $PY layoutfix.py check  fig.svg --strict     # CI 门禁：有 error 即退出码 7
-$PY layoutfix.py tune   fig.svg              # 起本地界面，人拖
+$PY layoutfix.py tune   fig.svg              # 起本地界面，人拖；顶栏下拉切换同目录其他图
 $PY layoutfix.py nudge  fig.svg --id text:4 --dy -4   # 命令行微调（agent 用）
 $PY layoutfix.py ops    fig.svg              # 看已落地的改动清单
 $PY layoutfix.py clean  fig.svg              # 清理清单：剔零位移、合并同元素碎片

@@ -8,6 +8,7 @@ PY=python          # 装了 pymupdf 的解释器即可
 $PY layoutfix.py check  fig.svg                 # 体检：把「看着不对」变成可断言的清单
 $PY layoutfix.py check  fig.svg --strict        # CI 门禁，有错误即退出码 7
 $PY layoutfix.py tune   fig.svg                 # 浏览器里拖动，改完立刻存盘 + 记清单
+                                                #   顶栏下拉可切换同目录其他 svg
 $PY layoutfix.py nudge  fig.svg --id text:4 --dy -4   # 命令行微调（agent 用）
 $PY layoutfix.py ops    fig.svg                 # 看已落地的改动清单
 $PY layoutfix.py clean  fig.svg                 # 清理清单：剔零位移、合并同元素碎片

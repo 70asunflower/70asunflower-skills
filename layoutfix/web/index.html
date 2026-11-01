@@ -72,6 +72,11 @@
     font-family:"Cascadia Mono",Consolas,monospace; min-width:42px;
     text-align:center; color:var(--mute);
   }
+  #filesel{
+    font:inherit; font-size:11px; color:var(--ink);
+    background:var(--field); border:1px solid var(--line2); border-radius:3px;
+    padding:2px 3px; max-width:170px;
+  }
   #title{
     flex:1; min-width:0; margin-left:12px; color:var(--mute); font-size:11px;
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:right;
@@ -256,6 +261,8 @@
     <button id="t-dark" title="暗色主题 (T)">暗</button>
   </span>
   <button id="t-invert" title="暗色下把图反相显示，只影响预览、不改文件">反相</button>
+  <div class="vsep"></div>
+  <select id="filesel" title="切换同目录下的其他图（svg）"></select>
   <div id="title"></div>
 </div>
 
@@ -1247,6 +1254,25 @@ async function refresh(){
   renderOps();
   // 完整路径能长到几百像素，顶栏放不下也没人看；只留末两级，全路径进 title
   setTitle();
+  // 同目录多图切换：服务端列出兄弟 svg（state.files），选择即整页跳转
+  // （?file=，主题走 localStorage、当前缩放随 z 参数同行）。
+  // 只在列表变化时重建 options，避免每次 refresh 都重置下拉框状态。
+  const selEl = document.getElementById('filesel');
+  const files = state.files || [];
+  const sig = files.join('|');
+  if(selEl.dataset.sig !== sig){
+    selEl.dataset.sig = sig;
+    selEl.innerHTML = '';
+    files.forEach(function(f){
+      const o = document.createElement('option');
+      o.value = f; o.textContent = f;
+      selEl.appendChild(o);
+    });
+  }
+  selEl.value = String(state.file || '').split(/[\\/]+/).pop();
+  selEl.onchange = function(){
+    location.href = '/?file=' + encodeURIComponent(this.value) + '&z=' + zoom.toFixed(2);
+  };
   if(selId){
     const el = canvas.querySelector('[data-ffid="' + CSS.escape(selId) + '"]');
     if(el){

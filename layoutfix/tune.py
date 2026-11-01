@@ -12,10 +12,11 @@ from __future__ import annotations
 
 import json
 import mimetypes
+import os
 import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs
 from pathlib import Path
 
 import edit
@@ -210,6 +211,8 @@ def state_of(fig: Path) -> dict:
         "counts": rep["counts"],
         "violations": rep["violations"],
         "ops": ops,
+        # 同目录可切换的图：界面顶栏的下拉列表数据源
+        "files": sorted(p.name for p in fig.parent.glob("*.svg")),
         # 字段叫 touched 而不是 pinned：它只是"你动过的元素"，不是"已定稿"。
         # 早期版本在状态栏显示"已定稿 N"，但界面上没有任何入口能定稿，
         # 数字永远是 0 或者等于改动数，属于承诺了不存在的能力。
@@ -222,7 +225,13 @@ def serve(fig: Path, port: int = 8770, open_browser: bool = True) -> None:
     if not fig.exists():
         raise SystemExit(f"文件不存在: {fig}")
     lock = threading.Lock()
-    redo_stack: list[dict] = []      # 被撤销的 op，供重做；任何新改动都会清空
+    cur = {"fig": fig}               # 当前图：?file= 可切换到同目录其他 svg
+    # 重做栈按文件隔离：切到另一张图再切回来，撤销历史不能串台
+    redo_stacks: dict[str, list[dict]] = {}
+    def stacks_for(f: Path) -> list[dict]:
+        return redo_stacks.setdefault(os.path.normcase(str(f)), [])
+    def get_fig() -> Path:
+        return cur["fig"]
 
     class H(BaseHTTPRequestHandler):
         def log_message(self, *a):
@@ -240,23 +249,34 @@ def serve(fig: Path, port: int = 8770, open_browser: bool = True) -> None:
         def do_GET(self):
             # 必须剥掉查询串：/?z=0.5 与 / 是同一个页面，
             # 直接比 self.path 会把它当成 404。
-            path = urlparse(self.path).path
+            parsed = urlparse(self.path)
+            path = parsed.path
             try:
                 if path in ("/", "/index.html"):
+                    # ?file=name.svg：切到同目录其他图。basename 校验挡住
+                    # 路径穿越——切换器只在本目录内活动。
+                    req_file = parse_qs(parsed.query).get("file", [None])[0]
+                    if req_file:
+                        base = os.path.basename(req_file)
+                        if base.endswith(".svg"):
+                            cand = get_fig().parent / base
+                            if cand.is_file():
+                                cur["fig"] = cand
                     # 整个「探测 + 生成页面」都持锁：write 是先截断再写，
                     # 并发下不加锁会读到半截文件，ET 解析直接抛错。
                     with lock:
-                        rep = probe.run(fig)
-                        page = build_page(fig, rep["unit_mm"])
+                        f = get_fig()
+                        rep = probe.run(f)
+                        page = build_page(f, rep["unit_mm"])
                     self._send(page.encode("utf-8"), "text/html; charset=utf-8")
                 elif path == "/fig.svg":
                     with lock:
-                        raw = edit.read_raw(fig)
+                        raw = edit.read_raw(get_fig())
                     self._send(edit.annotate(raw).encode("utf-8"),
                                "image/svg+xml; charset=utf-8")
                 elif path == "/state":
                     with lock:
-                        st = state_of(fig)
+                        st = state_of(get_fig())
                     self._send(json.dumps(st, ensure_ascii=False).encode("utf-8"))
                 elif path == "/selftest":
                     self._send(SELFTEST.encode("utf-8"), "text/html; charset=utf-8")
@@ -274,12 +294,14 @@ def serve(fig: Path, port: int = 8770, open_browser: bool = True) -> None:
             if path == "/redo":
                 try:
                     with lock:
-                        if not redo_stack:
+                        f = get_fig()
+                        stack = stacks_for(f)
+                        if not stack:
                             raise RuntimeError("没有可重做的改动")
-                        op = redo_stack.pop()
-                        raw = edit.read_raw(fig)
-                        edit.write_raw(fig, edit.redo_op(raw, op))
-                        edit.append_op(fig, op)
+                        op = stack.pop()
+                        raw = edit.read_raw(f)
+                        edit.write_raw(f, edit.redo_op(raw, op))
+                        edit.append_op(f, op)
                     self._send(json.dumps({"ok": True, "op": op},
                                           ensure_ascii=False).encode("utf-8"))
                 except Exception as exc:                 # noqa: BLE001
@@ -291,8 +313,9 @@ def serve(fig: Path, port: int = 8770, open_browser: bool = True) -> None:
                 try:
                     req = json.loads(self.rfile.read(n) or b"{}")
                     with lock:
-                        op = edit.set_order(fig, req["id"], req["mode"])
-                        redo_stack.clear()
+                        f = get_fig()
+                        op = edit.set_order(f, req["id"], req["mode"])
+                        stacks_for(f).clear()
                     self._send(json.dumps({"ok": True, "eid": op.get("eid_after")},
                                           ensure_ascii=False).encode("utf-8"))
                 except Exception as exc:                 # noqa: BLE001
@@ -302,9 +325,10 @@ def serve(fig: Path, port: int = 8770, open_browser: bool = True) -> None:
             if path == "/undo":
                 try:
                     with lock:
-                        op = edit.undo_last(fig)
+                        f = get_fig()
+                        op = edit.undo_last(f)
                         if op:
-                            redo_stack.append(op)
+                            stacks_for(f).append(op)
                     self._send(json.dumps({"ok": True, "op": op},
                                           ensure_ascii=False).encode("utf-8"))
                 except Exception as exc:                 # noqa: BLE001
@@ -316,8 +340,9 @@ def serve(fig: Path, port: int = 8770, open_browser: bool = True) -> None:
                 try:
                     req = json.loads(self.rfile.read(n) or b"{}")
                     with lock:
-                        op = edit.set_text(fig, req["id"], str(req.get("text") or ""))
-                        redo_stack.clear()
+                        f = get_fig()
+                        op = edit.set_text(f, req["id"], str(req.get("text") or ""))
+                        stacks_for(f).clear()
                     self._send(json.dumps({"ok": True, "op": op},
                                           ensure_ascii=False).encode("utf-8"))
                 except Exception as exc:                 # noqa: BLE001
@@ -329,9 +354,10 @@ def serve(fig: Path, port: int = 8770, open_browser: bool = True) -> None:
                 try:
                     req = json.loads(self.rfile.read(n) or b"{}")
                     with lock:
+                        f = get_fig()
                         attrs = req.get("attrs") or {req["attr"]: req["value"]}
-                        edit.set_values(fig, req["id"], attrs)
-                        redo_stack.clear()
+                        edit.set_values(f, req["id"], attrs)
+                        stacks_for(f).clear()
                     self._send(b'{"ok":true}')
                 except Exception as exc:                 # noqa: BLE001
                     self._send(json.dumps({"ok": False, "error": str(exc)},
@@ -344,9 +370,10 @@ def serve(fig: Path, port: int = 8770, open_browser: bool = True) -> None:
             try:
                 req = json.loads(self.rfile.read(n) or b"{}")
                 with lock:
-                    edit.move(fig, req["id"], float(req["dx"]), float(req["dy"]),
+                    f = get_fig()
+                    edit.move(f, req["id"], float(req["dx"]), float(req["dy"]),
                               note=req.get("note", ""))
-                    redo_stack.clear()
+                    stacks_for(f).clear()
                 self._send(b'{"ok":true}')
             except Exception as exc:                     # noqa: BLE001
                 self._send(json.dumps({"ok": False, "error": str(exc)},

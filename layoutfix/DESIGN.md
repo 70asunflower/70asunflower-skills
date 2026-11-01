@@ -133,9 +133,9 @@ undo_last(fig) -> dict | None
 
 | 路由 | 方法 | 说明 |
 |---|---|---|
-| `/` `/index.html` | GET | 注入 SVG 与 `UNIT_MM` 的界面 |
+| `/` `/index.html` | GET | 注入 SVG 与 `UNIT_MM` 的界面；`?file=` 切换同目录 svg（basename 校验防穿越），`?z=` `?sel=` `?theme=` 同理 |
 | `/fig.svg` | GET | 带 `data-ffid` 的副本 |
-| `/state` | GET | probe 结果 + 清单 + 已定稿集合 |
+| `/state` | GET | probe 结果 + 清单 + 同目录 `files` 列表 |
 | `/selftest` | GET | 合成拖拽自测页 |
 | `/apply` | POST | `{id, dx, dy}` 位移 |
 | `/set` | POST | `{id, attrs:{...}}` 改属性 |
@@ -144,6 +144,7 @@ undo_last(fig) -> dict | None
 
 约束：
 - 只监听 `127.0.0.1`
+- **当前图可切换**（`?file=`）：undo/redo 的内存栈按文件路径隔离，切换不串台
 - 所有读写持同一把 `threading.Lock`（`write` 先截断再写，不加锁会读到半截文件）
 - 所有路由先 `urlparse().path` 再匹配（否则带查询串就 404）
 - 每个路由有 `try/except` 兜底，异常返回 JSON 而非 500 HTML
