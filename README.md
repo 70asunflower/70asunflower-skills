@@ -5,6 +5,7 @@
 
 ![skills](https://img.shields.io/badge/skills-28-7cc4ff?style=flat-square)
 ![agents](https://img.shields.io/badge/agents-5-8b7cff?style=flat-square)
+![license](https://img.shields.io/badge/license-MIT-3f9d6b?style=flat-square)
 ![last commit](https://img.shields.io/github/last-commit/70asunflower/70asunflower-skills?style=flat-square&color=ffb454&label=last%20commit)
 
 ![架构](./.github/assets/architecture.svg)
@@ -162,4 +163,7 @@ agent 目录复制」，在 junction 布局下方向相反，会把仓库内容�
 
 ## 许可
 
-本仓库未附开源许可证，默认保留所有权利。想直接复用其中某个技能，开个 issue 说一声即可。
+[MIT](./LICENSE) © 2026 70asunflower
+
+拿去用、改、商用都行，保留版权声明即可。标了 `personal` 的技能绑了个人路径、账号或登录态，
+直接跑会失败——按里面的说明改成你自己的就能用。
