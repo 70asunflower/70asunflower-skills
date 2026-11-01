@@ -30,6 +30,15 @@
 | [svg-diagram-pipeline](./svg-diagram-pipeline/) | SVG 交互示意图 → 无头 Chrome 渲染 PNG → 插入思源笔记的完整管线，含 MOSFET 电路符号语法 |
 | [tutorial-writer](./tutorial-writer/) | 为初学者生成详细、正确、图文并茂的学习文档/教程：调研核验 → 依赖排序大纲 → 写作 → 配图（svg-diagram-pipeline）→ 润色（humanizer-zh）→ 三道门自查 → 交付（本地 md，可选思源） |
 | [agent-skills-sync](./agent-skills-sync/) | 多 agent（WorkBuddy/Claude/Codex/ZCode/Gemini）共享用户级技能的单一真相源：junction 分发、状态矩阵、漂移分类与冲突保护 |
+| [academic-poster](./academic-poster/) | 学术海报与易拉宝设计：60×160cm 印刷规范、PowerPoint 1:2 几何缩放、OpenXML 原生矢量注入、CJK 避头尾禁则。**已停用**，能力并入 paper-figures，此处留作工艺参考 |
+| [paper-review](./paper-review/) | LaTeX/IEEEtran 论文投稿前审阅与修改：本机编译环境、静态健康、句级审阅、术语与引用、图表与陈述强度一致性 |
+| [ieee-engineering-paper-writer](./ieee-engineering-paper-writer/) | IEEE/工程论文写作六模式：audit / rewrite / causal-chain / forensic / cite-lint / budget-control，附十项工程写作铁律与反模式库 |
+| [find-cited-papers-by-venue](./find-cited-papers-by-venue/) | 按「期刊/会议 + 主题」用 OpenAlex 查高被引论文（带 DOI 与引文数），用于找范本、文献调研与选刊参考 |
+| [deep-research-report-pipeline](./deep-research-report-pipeline/) | 工程决策类深度调研报告流水线：全网调研 → 分章撰写 → 独立审稿（数字比对 + 独立重算）→ 跨章对齐 → 语言优化 → 整合交付 |
+| [3d-printing-cad-design](./3d-printing-cad-design/) | 3D 打印机械 CAD 全流程：build123d / CadQuery 参数化建模、水密性网格校验、STEP→GLB 离线预览、制造交付打包 |
+| [fireworks-tech-graph](./fireworks-tech-graph/) | 技术示意图生成：架构图 / 数据流 / 流程图 / 时序图 / C4 / 云部署，输出 SVG、PNG、语义动图与离线交互 HTML |
+| [fireworks-tech-graph-wb](./fireworks-tech-graph-wb/) | fireworks-tech-graph 的 WorkBuddy 适配层：调用同一套风格库生成生产级技术图 |
+
 
 ### 个人工作流 `personal` — 包含个人特定配置，他人无需安装
 
@@ -39,6 +48,8 @@
 | [investment-analysis](./investment-analysis/) | 个人投资分析方法论与操作规程（林奇六分类 + 预测档案系统），含个人工作区路径 |
 | [trek-mcp-ops](./trek-mcp-ops/) | 自部署 TREK 旅行规划器（Docker + 内置 MCP 135 工具）的启停/建行程/排障手册，含本机端口与代理配置 |
 | [xhs-pipeline](./xhs-pipeline/) | 小红书信息收集流水线（profile 驱动：搜索/抓取/审读/合并入库），依赖本机浏览器登录态 |
+| [satellite-computing-paper-pipeline](./satellite-computing-paper-pipeline/) | 卫星边缘计算论文全生命周期：在轨遥测解析、三维正交因果排除、硬件自愈参数验证、LaTeX 工程与投稿 |
+
 
 ## 标签说明
 

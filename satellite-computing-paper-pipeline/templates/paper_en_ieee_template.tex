@@ -1,0 +1,131 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+% The preceding line is only needed to identify funding in the first footnote. If that is unneeded, please comment it out.
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{url}
+\usepackage{microtype}
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+\begin{document}
+
+\title{Title: Single-Event Functional Interrupt Analysis and Self-Healing Architecture for High-Performance COTS Satellite Computing Systems*\\
+\thanks{*This work was supported by [Funding Sources].}
+}
+
+\author{\IEEEauthorblockN{First Author\IEEEauthorrefmark{1}, Second Author\IEEEauthorrefmark{2}, Corresponding Author\IEEEauthorrefmark{1}}
+\IEEEauthorblockA{\IEEEauthorrefmark{1}Department / School, University / Institute, City, Country}
+\IEEEauthorblockA{\IEEEauthorrefmark{2}Space Systems Laboratory / Research Division, City, Country\\
+Email: \{first.author, corresponding.author\}@institution.edu}
+}
+
+\maketitle
+
+\begin{abstract}
+Deploying Commercial-Off-The-Shelf (COTS) advanced edge computing platforms on low-Earth-orbit (LEO) satellites has emerged as an essential trend to deliver on-orbit intelligent payload processing. However, when crossing high-radiation environments such as the South Atlantic Anomaly (SAA), high-flux proton bombardment poses severe single-event effect (SEE) vulnerabilities. Crucially, prior radiation ground tests predominantly focused on low-power idle or standalone chip-level irradiation, obscuring failure dynamics under realistic mission-critical compute loads. In this paper, we conduct in-situ proton irradiation experiments (e.g., 48~MeV energy) on a full-system COTS computing node under peak compute loads (e.g., 66.8~W). Telemetry captures a catastrophic three-stage failure cascade: abrupt computing termination, an uncommanded power drop to an abnormal plateau (e.g., 6.28~W), and complete unresponsive lockup. We establish a Three-Tier Orthogonal Elimination Framework across software/OS, electrical/damage, and power-domain boundaries to definitively attribute the root cause to a reversible Power Management Integrated Circuit (PMIC) Single-Event Functional Interrupt (SEFI). Finally, we design an out-of-band hardware cold-power-cycling self-healing architecture with an empirically validated power-down duration threshold ($\Delta t_{\text{off}} \ge 10\text{ s}$), achieving 100\% deterministic reboot recovery without permanent hardware degradation.
+\end{abstract}
+
+\begin{IEEEkeywords}
+COTS edge computing, LEO satellites, proton radiation, single-event functional interrupt (SEFI), fault tree attribution, cold power cycling, self-healing architecture.
+\end{IEEEkeywords}
+
+\section{Introduction}
+The rapid proliferation of Earth observation constellations and autonomous orbital servicing demands gigascale tensor computing capabilities deployed directly in low-Earth orbit (LEO)~\cite{ref1,ref2}. While aerospace-grade radiation-hardened processors guarantee high mission reliability, their orders-of-magnitude deficits in power-performance efficiency hinder on-orbit real-time foundation model inference~\cite{ref3,ref4}. Consequently, leveraging advanced Commercial-Off-The-Shelf (COTS) heterogeneous System-on-Chips (SoCs) has become an indispensable technical trajectory~\cite{ref5,ref6}.
+
+However, low-inclination and polar LEO spacecraft inevitably cross the South Atlantic Anomaly (SAA) and auroral oval, suffering continuous bombardment from energetic trapped protons (typically 10--100~MeV)~\cite{ref7,ref8}. Under deep sub-micron process nodes and complex power-delivery networks, radiation-induced Single-Event Effects (SEEs) exhibit non-trivial, system-level failure signatures~\cite{ref9,ref10}.
+
+A critical methodological gap in existing literature is the prevalence of \emph{quiescent (idle) or static chip-level beam tests}~\cite{ref11}. In actual space missions, edge platforms operate under dynamic high-power compute bursts. The coupling between intense electromagnetic transients, extreme thermal gradients, and complex multi-rail power delivery under heavy loads dramatically alters SEE manifestation.
+
+In this work, we present end-to-end empirical beam testing, physical causal attribution, and architectural mitigation for a high-performance COTS satellite computing system:
+\begin{itemize}
+    \item \textbf{High-Load In-Situ Beam Testing:} Under full-system compute workload (66.8~W), we expose the platform to 48~MeV mono-energetic protons, uncovering a multi-phase telemetry cascade that low-power tests fail to reproduce.
+    \item \textbf{Three-Tier Orthogonal Elimination Framework:} We formulate a systematic causal elimination matrix spanning software/OS, physical damage, and multi-rail power domains, isolating the anomalous 6.28~W quiescent state to PMIC register upsets (SEFI).
+    \item \textbf{Deterministic Self-Healing Architecture:} We implement an out-of-band hardware watchdog mechanism with cold-power-cycling decay timing ($\Delta t_{\text{off}} \ge 10\text{ s}$), guaranteeing 100\% system recovery.
+\end{itemize}
+
+\section{Related Work \& Motivation}
+Recent flight demonstrations and ground accelerator evaluations highlight both the potential and fragility of COTS hardware in orbit~\cite{ref12,ref13}. While software-level triple modular redundancy (TMR) and kernel watchdog resets mitigate soft single-event upsets (SEUs)~\cite{ref14}, power management subsystems remain the single point of failure (SPOF)~\cite{ref15,ref16}.
+
+\section{Experimental Methodology \& Setup}
+\subsection{Proton Radiation Facility \& Dosimetry}
+Experiments were conducted at a representative cyclotron accelerator beamline delivering 48~MeV mono-energetic protons. The beam profile is uniform over a 10~cm diameter target window with flux calibrated via Faraday cups and dosimetry ionization chambers.
+
+\subsection{COTS Computing Testbed \& Workload Configuration}
+The Device Under Test (DUT) comprises a state-of-the-art heterogeneous COTS edge processor with integrated CPU, GPU, and deep learning accelerators, powered via a multi-phase switching PMIC network. A continuous synthetic stress benchmark was executed, maintaining an operational load of 66.8~W.
+
+\subsection{Multi-Channel Real-Time Telemetry System}
+Telemetry synchronized three orthogonal observation channels:
+\begin{enumerate}
+    \item \emph{In-band OS & Application Logs:} High-frequency kernel dmesg, compute throughput, and heartbeat pings.
+    \item \emph{Out-of-band Primary Bus Electrical Telemetry:} 100~Hz current, voltage, and instantaneous power recordings.
+    \item \emph{Environmental & Secondary Rail Monitors:} Thermocouples and board-level supervisory signals.
+\end{enumerate}
+
+\section{Empirical Results \& Failure Timeline}
+\subsection{Multi-Stage Failure Cascade}
+Upon reaching a cumulative proton fluence $\Phi_{\text{crit}}$, telemetry records a deterministic 3-stage failure sequence:
+\begin{itemize}
+    \item \textbf{Stage 1 ($t_0$): Sudden Compute Termination.} The in-band compute workload abruptly halts; network packet transmission drops to zero within 100~ms.
+    \item \textbf{Stage 2 ($t_0 + \Delta t_1$): Rapid Power Plunge.} Primary 12~V bus power plummets from 66.8~W to an abnormal quiescent plateau of 6.28~W.
+    \item \textbf{Stage 3 ($t_0 + \Delta t_2$): Total System Lockup.} Hardware warm-reset (RST\#) pins and UART consoles fail to elicit any response, while primary power remains locked at 6.28~W indefinitely.
+\end{itemize}
+
+\section{Physical Attribution: Three-Tier Orthogonal Elimination}
+To attribute the root cause without speculative bias, we implement a Three-Tier Orthogonal Elimination Framework (Table~\ref{tab:elimination}).
+
+\begin{table}[htbp]
+\caption{Three-Tier Orthogonal Fault Elimination Matrix}
+\label{tab:elimination}
+\begin{center}
+\begin{tabular}{lp{3.2cm}p{3.2cm}}
+\toprule
+\textbf{Hypothesis Tier} & \textbf{Observed Incompatible Evidence} & \textbf{Elimination Verdict} \\
+\midrule
+\textbf{Tier 1: OS / Kernel Hang} & Linux kernel panic / WDT triggers reset; power remains high ($>20$~W). & \textbf{Eliminated:} Power dropped to 6.28~W; RST\# line unresponsive. \\
+\midrule
+\textbf{Tier 2: Catastrophic SEL / Burnout} & Destructive SEL induces continuous high short-circuit current ($>10$~A); irreversible. & \textbf{Eliminated:} Current dropped significantly; normal operation restored post-cold cycle. \\
+\midrule
+\textbf{Tier 3: Power Distribution Rail SEFI} & Incomplete PMIC internal state machine shutdown; auxiliary rails alive while core rails latch off. & \textbf{Confirmed:} Consistent with 6.28~W baseline standby draw. \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{table}
+
+\section{Mitigation Architecture \& Self-Healing Evaluation}
+\subsection{Cold-Power-Cycling Threshold ($\Delta t_{\text{off}} \ge 10\text{ s}$)}
+Experimental verification demonstrated that sub-second or brief power interruptions failed to discharge internal multi-stage decoupling capacitance networks, leaving PMIC flip-flops partially powered and latched in the fault state. A minimum cold-power-off time $\Delta t_{\text{off}} \ge 10\text{ s}$ is mandatory to guarantee full rail collapse to $<0.1$~V.
+
+\subsection{Out-of-Band Hardware Self-Healing Watchdog}
+We designed an independent radiation-tolerant supervisory microcontroller operating on an isolated power domain. The architecture executes autonomous multi-channel health arbitration and drives external high-side solid-state power switches (SSPS) for autonomous recovery.
+
+\section{Conclusion}
+This paper investigated the single-event failure signatures of a full-load COTS satellite edge computing system under 48~MeV proton radiation. Through orthogonal empirical attribution, the critical failure mode was isolated to PMIC SEFI. The proposed out-of-band cold-power-cycling self-healing architecture delivers a robust, space-verified methodology for ultra-reliable on-orbit edge intelligence.
+
+\begin{thebibliography}{00}
+\bibitem{ref1} Reference 1 citation details.
+\bibitem{ref2} Reference 2 citation details.
+\bibitem{ref3} Reference 3 citation details.
+\bibitem{ref4} Reference 4 citation details.
+\bibitem{ref5} Reference 5 citation details.
+\bibitem{ref6} Reference 6 citation details.
+\bibitem{ref7} Reference 7 citation details.
+\bibitem{ref8} Reference 8 citation details.
+\bibitem{ref9} Reference 9 citation details.
+\bibitem{ref10} Reference 10 citation details.
+\bibitem{ref11} Reference 11 citation details.
+\bibitem{ref12} Reference 12 citation details.
+\bibitem{ref13} Reference 13 citation details.
+\bibitem{ref14} Reference 14 citation details.
+\bibitem{ref15} Reference 15 citation details.
+\bibitem{ref16} Reference 16 citation details.
+\end{thebibliography}
+
+\end{document}
