@@ -36,8 +36,7 @@
 | [find-cited-papers-by-venue](./find-cited-papers-by-venue/) | 按「期刊/会议 + 主题」用 OpenAlex 查高被引论文（带 DOI 与引文数），用于找范本、文献调研与选刊参考 |
 | [deep-research-report-pipeline](./deep-research-report-pipeline/) | 工程决策类深度调研报告流水线：全网调研 → 分章撰写 → 独立审稿（数字比对 + 独立重算）→ 跨章对齐 → 语言优化 → 整合交付 |
 | [3d-printing-cad-design](./3d-printing-cad-design/) | 3D 打印机械 CAD 全流程：build123d / CadQuery 参数化建模、水密性网格校验、STEP→GLB 离线预览、制造交付打包 |
-| [fireworks-tech-graph](./fireworks-tech-graph/) | 技术示意图生成：架构图 / 数据流 / 流程图 / 时序图 / C4 / 云部署，输出 SVG、PNG、语义动图与离线交互 HTML |
-| [fireworks-tech-graph-wb](./fireworks-tech-graph-wb/) | fireworks-tech-graph 的 WorkBuddy 适配层：调用同一套风格库生成生产级技术图 |
+| [fireworks-tech-graph-wb](./fireworks-tech-graph-wb/) | fireworks-tech-graph 的 WorkBuddy 适配层：调用同一套风格库生成生产级技术图。**依赖外部的 `fireworks-tech-graph`**（yizhiyanhua-ai 的 MIT 项目，未纳入本仓库） |
 
 
 ### 个人工作流 `personal` — 包含个人特定配置，他人无需安装
