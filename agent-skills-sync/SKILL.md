@@ -40,7 +40,7 @@ D:\Project\workspace\my_github\my-skills\   ← 唯一真相源（git，公开�
 
 **边界**：一台机器、用户级技能、你能控制所有 agent 的目录布局。多机、团队、项目级技能都要换方案。
 
-**当前残留（2026-10-27 归集后）**：链式 junction 9 → 2，多副本技能 11 → 2。剩下这两个是**第三方技能** `etfirst`、`neodata-financial-search`，差异在渠道参数——`sub_channel` 分别是 `mimo` 和 `workbuddy`，Python 路径也随之不同，不是版本新旧。**已决定让各 agent 各自保留、不共享**，记在 baseline 的 `intentional` 里（设计如此，不算欠账）。其余 59 份副本集中在未纳入主库的第三方技能上，属正常。
+**当前状态（2026-11-01）**：归集完成——`etfirst`、`neodata-financial-search` 已收编进主库（第三方物理在仓不入库），zcode/claude/workbuddy 三渠道全部 junction，baseline 的 `intentional` 已清空；`skillsync.py scan` 显示**多副本漂移 = 0**，六个 runtime 的自建技能 27/27 全 junction。junction 拓扑与权属细则见主记忆 `skills-junction-architecture`。
 
 ## 命令
 
@@ -98,7 +98,7 @@ grep -rn "<旧技能名>" --include=SKILL.md .
 - 报出**新增**链式 junction → **拒绝**（baseline 的 `intentional` 是设计上不共享的第三方技能，`chained` 是待修欠账、目标为空）
 - 真实副本数上涨 → 只**警告**（归集要人工判断，不该堵住提交）
 
-判定原则是**只拦新增问题，不为历史欠账买单**——否则 76 份副本和 9 项链式会让任何提交都过不去。
+判定原则是**只拦新增问题，不为历史欠账买单**——否则归集前的 76 份副本和 9 项链式会让任何提交都过不去。
 
 ```bash
 cp scripts/git-hooks/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit

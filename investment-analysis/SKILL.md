@@ -74,7 +74,7 @@ description: 投资工作区（D:\Project\workspace\投资）的分析方法论�
 
 ### c. 数据刷新（五组串行，断点续跑）
 ```bash
-cd <SYS> && NODE="C:/Users/qilin/.workbuddy/binaries/node/versions/22.22.2-5/node.exe"  # 版本会升级，用前 ls 校验
+cd <SYS> && NODE="C:/Users/qilin/.workbuddy/binaries/node/versions/22.22.2-6/node.exe"  # 版本会升级：先 ls versions/ 取最新，失效就换
 python scripts/fetch_quotes.py --node "$NODE"      # ① 行情：westock 优先，不耗 Wind
 python scripts/fetch_deep.py --node "$NODE"        # ② 深度：K线绩效/风险/事件（Wind）
 python scripts/fetch_fund.py --node "$NODE"        # ③ 财务体检+估值分位（Wind）

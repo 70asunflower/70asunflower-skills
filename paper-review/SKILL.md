@@ -42,6 +42,11 @@ Writing track:
 Most real tasks use both tracks: write or revise in the writing track, then prove it in the review
 track. Say which one you are in before you start.
 
+**Boundary — 与 `academic-paper-reviewer` 的分工**：多席位模拟评审（4 卡片 + Devil's Advocate）、
+re-review/calibration 等评审流程归那个第三方技能；本技能是**投稿前自审 + 写作双轨**（带可执行
+检查脚本，claim-evidence 对齐与 LaTeX 静态健康是这里独有的）。"审论文"若指要出一版多视角评审
+意见 → 那边；要改稿、核引用、修编译 → 这里。
+
 The paper is usually under version control with a companion `<name>.log.md` change log. Read the log
 first: it records earlier decisions and the reasons for them, including terms that must **not** be
 changed again.
@@ -57,9 +62,9 @@ changed again.
 
 ### Step 0b — Local compile environment
 
-> 本机（ZCode 工作机）实测：TeX Live 2026 已装于 `D:\Software\texlive\2026\bin\windows`，
-> pdflatex / xelatex / bibtex / booktabs / subfig 等齐全，**无需 --install**；check_layout 所需
-> PyMuPDF 已装（miniconda python）。直接跑 `check_env.py` 报一遍即可确认。
+> **本机锚点**（随仓库会同步到公开仓，换机以 `check_env.py` 实测为准）：ZCode 工作机
+> TeX Live 2026 在 `D:\Software\texlive\2026\bin\windows`，pdflatex / xelatex / bibtex /
+> booktabs / subfig 等齐全，**无需 --install**；check_layout 所需 PyMuPDF 已装（miniconda python）。
 
 Estimates are not results, so aim for a local compile. Check the toolchain before promising a page
 count:

@@ -27,10 +27,16 @@ scripts/
 │   ├── blocks.py          # Block builders (callout, paragraph, image, etc.)
 │   ├── dispatch.py        # Content dispatch & format parsing
 │   └── __init__.py
-├── user/                  # Personalized — your config only
+├── user/                  # Personalized — your config only (not committed)
 │   ├── pages.json         # Named page ID mappings (e.g., "lifeos")
+│   ├── lifeos/            # 8+1 Life OS modules (os_entry.py 依赖)
+│   │   ├── client.py      # Notion DB 读写
+│   │   ├── commands.py    # 命令路由
+│   │   └── config.json    # 数据库 ID 映射（不入库）
 │   └── README.md
 ├── record.py              # Entry point (imports from core/)
+├── os_entry.py            # OS 管道入口
+├── os_parser.py           # OS 属性解析（@桶 / energy: / mood: 等）
 ├── notion_client.py       # Notion API client
 ├── check_config.py        # Config verification
 ├── search_notes.py        # Keyword search
@@ -39,21 +45,17 @@ scripts/
 
 ## Multi-Page Support
 
-You can sync to multiple Notion pages by configuring named pages in `scripts/pages.json`:
+You can sync to multiple Notion pages by configuring named pages in `scripts/user/pages.json`（个人页面 ID，不入库；新环境从 `NOTION_PARENT_PAGE_ID` 起步，或自建该文件）:
 
 ```json
 {
   "2026": {
-    "page_id": "2db294df-130c-80e2-a3e1-e7769f933786",
+    "page_id": "<32-char page id>",
     "description": "2026 年度页（默认同步目标）"
   },
   "lifeos": {
-    "page_id": "d0f294df-130c-8381-b992-81aa719b8cab",
+    "page_id": "<32-char page id>",
     "description": "8+1 Life OS（用 --page lifeos 指定）"
-  },
-  "work": {
-    "page_id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-    "description": "工作日志"
   }
 }
 ```
@@ -74,11 +76,11 @@ Without `--page`, defaults to `NOTION_PARENT_PAGE_ID`.
 - **Config file (survives system resets)**: `P:/my_project/.notion_env` — keep secrets here, NOT only in C: environment variables (a Windows reset wipes C:).
   ```
   NOTION_API_KEY=ntn_xxxxx
-  NOTION_PARENT_PAGE_ID=2db294df-130c-80e2-a3e1-e7769f933786   # 2026 annual page (default sync target)
+  NOTION_PARENT_PAGE_ID=<32-char page id>   # 2026 annual page (default sync target)
   NOTION_QUOTES_PAGE_ID=...   # optional
   ```
 - The client resolves config in this order: environment variable → Windows registry → `P:/my_project/.notion_env` (first match wins).
-- **Default sync page is `2026`** (`2db294df-130c-80e2-a3e1-e7769f933786`). Use `--page lifeos` to target the 8+1 Life OS page.
+- **Default sync page is `2026`**（页面 ID 见 `scripts/user/pages.json`，不入库）. Use `--page lifeos` to target the 8+1 Life OS page.
 - **Image uploads need no extra library.** `notion_client.upload_file()` implements Notion's File Upload API directly with `urllib` (create upload session → send bytes as multipart). It runs on whatever interpreter invokes `record.py`; there is no dedicated venv and nothing on C: to lose on a system reset.
 
 ## Usage
@@ -95,7 +97,6 @@ python scripts/record.py list --kind {bullet|number} "{items}"
 python scripts/record.py toggle "{json}"
 python scripts/record.py image [--caption "text"] "{file_path_or_url}"
 python scripts/record.py image --page {name} [--caption "text"] "{file_path_or_url}"
-python scripts/record.py caption "{content_to_append}"     # (unused — caption always attached to image via --caption)
 python scripts/record.py undo
 python scripts/check_config.py
 python scripts/search_notes.py "{keyword}"
@@ -154,7 +155,7 @@ STEP 0: Starts with "os " (case-insensitive)?
 - Contains `[ ]` or `【 】` → todo
 - Default → idea
 
-**Caption — routing rule (IMPORTANT, corrected 2026-07-11):**
+**Caption — routing rule (IMPORTANT):**
 
 `caption:` / `说明:` / `补:` is **ALWAYS used together with an image in the same message** for this user. There is **no standalone "caption without image" case** — do NOT use `record.py caption` (which appends to the last callout); that path is NOT used here.
 
@@ -167,7 +168,7 @@ STEP 0: Starts with "os " (case-insensitive)?
 python scripts/record.py image --caption "caption文字" "图片路径"
 ```
 
-**Caption attachment reference** (verified via API, 2026-07-22):
+**Caption attachment reference** (verified via API):
 
 | Block type | Supports caption? | How to attach |
 |------------|-------------------|---------------|
@@ -250,7 +251,7 @@ Same `caption:` pattern works for links:
 ## Best Practices for AI Callers
 
 - **Content passing**: Always use `.pending_content.txt` (write file → run script). Never pass content via command-line args (PowerShell `$` expansion issues).
-  - **⚠️ CRITICAL — File path**: Write to `C:\Users\Nesp\.workbuddy\skills\notion-im-helper\scripts\.pending_content.txt` (the scripts directory, NOT the workspace directory). The script reads from its own directory, so writing to the workspace root will result in empty content.
+  - **⚠️ CRITICAL — File path**: Write to `.pending_content.txt`，放在**本技能的 scripts 目录**（即 `record.py` 所在目录；无论从哪个 runtime 调用，都以脚本自身目录为准）。写工作区根目录会读到空内容。
 - **Image passing**: Pass image file path or URL directly as command-line argument to `record.py image`. Do NOT copy to `.pending_image.jpg` — that file is only used internally for cleanup.
 - **Type inference**: If user says "notion" or "同步" without specifying type, infer from content:
   - Starts with `caption:` / `说明:` / `补:` → image caption (must be paired with image; use `record.py image --caption`)
@@ -271,9 +272,7 @@ Same `caption:` pattern works for links:
 > ❌ 错误: `i 想法` → OS sync（没 `os` 前缀，走页面）
 > ✅ 正确: `os i 想法 @学习` → OS sync
 > ✅ 正确: `i 想法` → page sync（idea callout）
-> ❌ 错误: `os 月报` → 错误路由到页面 monthly summary（已修复）
-
-**AI 调用的第一条规则**：先检查 `os ` 前缀。命中则 OS sync，没命中才往下看页面触发词。
+> ❌ 错误: `os 月报` → 错误路由到页面 monthly summary
 
 ### OS Commands
 

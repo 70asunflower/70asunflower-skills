@@ -44,12 +44,12 @@ python scripts/upload_swap_asset.py <png>  # 上传思源并替换引用
 
 ## 路径 ③：技术架构图（fireworks）
 
-调用外部的 `fireworks-tech-graph` 技能生成架构图、数据流、时序图、C4、云部署等。
+调用 `fireworks-tech-graph` 技能（第三方，物理在仓、git 不跟踪——见根目录 .gitignore 的 skillsync 区块）生成架构图、数据流、时序图、C4、云部署等。
 
-- 前置条件：`fireworks-tech-graph` 需单独安装（第三方 MIT 项目，不在本仓库）
 - 12 种风格清单、命令模板、样式选择见 `references/fireworks-styles.md`
 - 质量契约与风格细则见 `references/composition-quality-contract.md`、
-  `references/style-1-flat-icon.md`
+  `references/style-1-flat-icon.md`——**风格规则真相源在 `../fireworks-tech-graph/references/`**，
+  本目录内同名文件是同步快照，改样式先改那边再同步过来
 - 导出 PNG 用 `scripts/png_export.js`
 
 ## 通用约定

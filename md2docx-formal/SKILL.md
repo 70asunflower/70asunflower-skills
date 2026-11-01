@@ -51,7 +51,7 @@ script so you don't break content fidelity.
        [--title "文档主标题"] [--no-toc] [--no-header-footer]
    ```
    - `python` must be a venv with `python-docx` installed. If missing:
-     `python -m venv venv && venv/bin/pip install python-docx`.
+     `python -m venv venv && venv\Scripts\pip install python-docx`（Windows；POSIX 为 `venv/bin/pip`）.
    - The first `# ` heading becomes the Title (overridable via `--title`).
    - **Cover page**: the title is split on `——` into a main title (28pt) + subtitle (16pt);
      the meta block between the title and the first `## ` is parsed — markdown tables become
@@ -116,8 +116,8 @@ script so you don't break content fidelity.
   figures must match the source exactly.
 - **TOC is a field.** Tell the user to right-click "更新域" in Word to populate it; the
   placeholder text is intentional, not an error.
-- Do not use the `tencent-local-office-edit` skill for this — its `editor_sdk` backend is
-  unavailable in the sandbox and manual edits corrupt eastAsia fonts.
+- Do not hand-edit the generated `.docx` to "fix" issues — manual Word edits corrupt
+  eastAsia fonts and break fidelity with the source. Re-run the conversion instead.
 
 ## Output notes
 

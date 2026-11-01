@@ -5,7 +5,7 @@ description: 小红书信息收集通用流水线（profile 驱动）：真实�
 
 # xhs-pipeline：小红书信息收集通用流水线
 
-profile 驱动的小红书收集引擎：`search` / `fetch-url` / `fetch-profile`（真实点击、单篇直收或博主主页整收→暂存）→ `review` + 模型审内容/读图 → `merge-q` / `merge-jobs` 等合并命令 → `clean-staging` 清临时文件。**依赖 ai-tutorial-pipeline 的 wb.py / siyuan.py（sys.path 引用）。**
+profile 驱动的小红书收集引擎：`search` / `fetch-url` / `fetch-profile`（真实点击、单篇直收或博主主页整收→暂存）→ `review` + 模型审内容/读图 → `merge-q` / `merge-jobs` 等合并命令 → `clean-staging` 清临时文件。**依赖同仓库 `ai-tutorial-pipeline` 的 wb.py / siyuan.py**（pipeline.py 自动按 `__file__` 定位兄弟技能目录，任何 runtime 的 junction 下都能找到）。
 
 ## 命令（--profile 默认 profiles/job.json）
 

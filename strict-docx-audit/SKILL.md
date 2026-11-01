@@ -42,7 +42,7 @@ When this skill is invoked, you MUST follow this protocol **exactly** — no sho
 selective checking, no "looks fine I'll skip the rest":
 
 1. **Create a task list** with one task per check ([1] through [12]).
-2. **Run the full 12-check audit** via `python strict_audit.py OUTPUT.docx --source SOURCE.md`.
+2. **Run the full 12-check audit** via `python scripts/strict_audit.py OUTPUT.docx --source SOURCE.md`.
    Never run individual checks manually or selectively.
 3. **Read ALL output.** Do not stop reading after the first failure or after the summary table.
    Every check line must be consumed.
@@ -63,6 +63,12 @@ python scripts/strict_audit.py OUTPUT.docx [--source SOURCE.md] [--skip-fidelity
 - Exit code `0` = all checks pass
 - Exit code `1` = one or more failures
 - `--source` enables [5] fidelity check (skips if omitted)
+
+## 与 md2docx-formal 的分工（质检规则单一真相源）
+
+本技能是 docx 质检规则的**唯一真相源**（12 项交付终检 + 阈值常量）；`md2docx-formal/scripts/audit_docx.py`
+是转换侧内置快检（A–F，转换后即时反馈用）。两套**不合并代码**，但质检口径以本技能为准——
+改阈值、加检查只改这里，md2docx-formal 侧需要对齐时由本技能同步过去。
 
 ## 12 检查全览
 

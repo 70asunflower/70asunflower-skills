@@ -25,8 +25,6 @@ C:\Users\qilin\miniconda3\python.exe
 
 已装：trimesh 5.1.0、build123d 0.11.1、matplotlib 3.11.2、numpy 2.5.1、cascadio 0.1.1（STEP→GLB）、fast-simplification 0.2.0（网格简化）、Pillow。Node.js 22 可用（JS 强校验）。其他 Python 运行时（含 WorkBuddy 托管环境 `C:\Users\qilin\.workbuddy\binaries\python\`）为隔离环境，未装这些包，直接用 `python` 会报 `ModuleNotFoundError`。
 
-> 版本：v1.1（2026-10-22 实战修订）——新增大型 STEP 装配体预览路线 B、几何合并铁律、离线内嵌规范、垃圾几何剔除流程；升级 check_preview_syntax.py（node --check 强校验，消除 NaN 误报）；**每个预览 HTML 强制配套同名 `<name>.README.md`（七项内容，见阶段四"交付说明文件"）**。
-
 ---
 
 ## 核心设计哲学与避坑准则

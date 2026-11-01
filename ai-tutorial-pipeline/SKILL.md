@@ -10,6 +10,9 @@ description: 用网页版 AI（默认千问 chat.qwen.ai，跑在用户本机 Ed
 
 > 这是 `tutorial-writer` 的**执行方式之一**（用网页版 AI 省 token）。
 > 内容质量规范、大纲排序、三道门自查都在 `tutorial-writer`，本技能只管怎么跑。
+
+**以下所有命令都在本技能目录下执行**（各 runtime 的 `skills/ai-tutorial-pipeline/`，junction 到仓库 `my-skills/ai-tutorial-pipeline/`），统一写作 `python scripts/…`。
+
 ## 前置条件
 
 - WebBridge（`~/.kimi-webbridge/`）+ Edge 扩展：脚本会自动启动守护进程；扩展连接不上时提示用户打开 Edge 检查扩展。
@@ -27,7 +30,7 @@ description: 用网页版 AI（默认千问 chat.qwen.ai，跑在用户本机 Ed
 ### 第 1 步：环境自检
 
 ```bash
-python ~/.zcode/skills/ai-tutorial-pipeline/scripts/check_env.py --parent "<父文档ID或标题>"
+python scripts/check_env.py --parent "<父文档ID或标题>"
 ```
 
 输出 JSON：`bridge`（WebBridge 状态）、`kernel`（思源端口）、`parent`（解析出的父文档 id/notebook/hpath）。bridge 不 ok → 让用户打开 Edge 看扩展；思源没起 → 告诉用户，不要代启。
@@ -39,21 +42,23 @@ python ~/.zcode/skills/ai-tutorial-pipeline/scripts/check_env.py --parent "<父�
 提示词模板（第 1 章沿用用户的原始措辞；后续章保持一致的开头）：
 
 ```
-第1章:  Qwen3.8-Max按照我给的大纲给我生成一个速成教程。质量第一，不限字数。细节由你定，我给的是参考的大纲。你可以优化内容。
+第1章:  <目标模型名>按照我给的大纲给我生成一个速成教程。质量第一，不限字数。细节由你定，我给的是参考的大纲。你可以优化内容。
         <大纲标题>
         <本章大纲条目，一行一条>
-后续章: Qwen3.8-Max按照我给的大纲继续生成下一章。质量第一，不限字数。细节由你定，我给的是参考的大纲。你可以优化内容。
+后续章: <目标模型名>按照我给的大纲继续生成下一章。质量第一，不限字数。细节由你定，我给的是参考的大纲。你可以优化内容。
         <大纲标题>
         <本章大纲条目>
 收尾章: ……生成最后一章：<章节名>。……最后给整个教程做一个全篇总结收尾。
 ```
+
+`<目标模型名>` = 当前站点的模型（默认千问 Qwen3.8-Max；换站点/模型只改这里与 plan 的 `chat_url`）。
 
 关键 plan 字段：`session`（本次任务唯一名）、`parent_id`、`chat_url`、`composer_css`（输入框选择器，千问是 `textarea[placeholder="Ask Qwen"]`）、`poll_interval`（默认 20s）、`max_wait_min`（默认 25）、`chapters[].{key, prompt_file, fallback_title}`。换其他 AI 站点时只改 `chat_url`、`composer_css` 和复制按钮 CSS。
 
 ### 第 3 步：后台运行流水线
 
 ```bash
-python ~/.zcode/skills/ai-tutorial-pipeline/scripts/generate.py --plan plan.json
+python scripts/generate.py --plan plan.json
 ```
 
 **必须用 Bash 的 run_in_background 跑**，然后定期查看输出文件。流水线自动完成每章循环：等空闲 → 发提示词 → 轮询等生成完 → 截获内容 → **立刻发下一章提示词** → 回头存思源（入库前后自动做格式校验：表格行拼接、列数一致、伪表格检测、公式禁词；校验失败自动删掉坏文档并报错）。断点续传：中断后重跑同一 plan，已发送/已截获/已保存的章节自动跳过，绝不重复发送。
@@ -70,7 +75,7 @@ python ~/.zcode/skills/ai-tutorial-pipeline/scripts/generate.py --plan plan.json
 
 ## 故障救援
 
-- 章节生成完了但流水线挂了：`python ~/.zcode/skills/ai-tutorial-pipeline/scripts/wb.py copy-latest <out.md> --session <plan.session>` 手动截获 → `python ~/.zcode/skills/ai-tutorial-pipeline/scripts/siyuan.py save <out.md> --parent-id <ID> --fallback <标题>` 手动入库（同样带格式校验）。
+- 章节生成完了但流水线挂了：`python scripts/wb.py copy-latest <out.md> --session <plan.session>` 手动截获 → `python scripts/siyuan.py save <out.md> --parent-id <ID> --fallback <标题>` 手动入库（同样带格式校验）。
 - 只想看页面状态：`python .../wb.py snapshot --session <plan.session>`。
 - 重跑前先看 `progress.json` 确定断在哪一步（sent/baseline/copies0/captured/doc_id 标记）。
 

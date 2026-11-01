@@ -85,10 +85,10 @@ python check_project.py --scan "<工作区根>" [--depth 2]   # 批量巡检所�
 ## 自测
 
 ```bash
-python scripts/init_project.py /tmp/pi-test && python scripts/check_project.py /tmp/pi-test   # 应无 E/W
-python scripts/init_project.py /tmp/pi-mess --adopt          # 散乱目录应输出迁移建议，--apply 执行
-python scripts/check_project.py --scan /tmp --depth 1        # 批量巡检
-python scripts/init_project.py /tmp/pi-test --upgrade        # 同版本应报"已是最新"
+python scripts/init_project.py %TEMP%\pi-test && python scripts/check_project.py %TEMP%\pi-test   # 应无 E/W
+python scripts/init_project.py %TEMP%\pi-mess --adopt          # 散乱目录应输出迁移建议，--apply 执行
+python scripts/check_project.py --scan %TEMP% --depth 1        # 批量巡检
+python scripts/init_project.py %TEMP%\pi-test --upgrade        # 同版本应报"已是最新"
 ```
 
 违规样例：docs/ 放 `报告_v2.md`（含对话腔）应报 E 副本+E 痕迹+W 缺日志；台账登记状态「测试通过」但功能文档写「待办」应报 E 状态不一致；`code/main.py` 注释含"作为一个AI"应报 E 注释痕迹；`docs/新建文档 (1).md`、`docs/20260928-报告.md` 应报 W 命名不规范。

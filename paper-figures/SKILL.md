@@ -100,6 +100,11 @@ PyMuPDF 渲染 PDF 为 300 DPI 基准图 $\to$ PowerPoint COM 无头静默导出
 - **HTML 海报 / 演示页**：`scripts/snap/snap.mjs`（随附副本；真相源与同步方式见 `scripts/snap/SOURCE.md`），支持截图 / `--audit` 体检 / `--diff` 像素回归 / `--check` 基线。
 - **不要用整页截图代替局部**：先 `layoutfix check --json` 拿 `region`，再 `preview.py --clip` 只渲那一块。
 
+### 1.9 【出图路由 → visual-diagrams】
+需要的是**信息卡、示意图、系统架构图**而非论文数据图表时，路由到 **`visual-diagrams`** 技能
+（三路径：HTML 信息卡 / 手写 SVG / 架构图委托 fireworks-tech-graph，见 `../visual-diagrams/SKILL.md`）。
+本技能只管论文向管线：顶刊数据图、PPT 转矢量、Origin 直通、Graphical Abstract、学术海报。
+
 ---
 
 ## 二、专门业务管线实现指南
@@ -132,10 +137,10 @@ PyMuPDF 渲染 PDF 为 300 DPI 基准图 $\to$ PowerPoint COM 无头静默导出
 ### 2.3 管线 C：Origin 直通可编辑图表（OPJU）
 用途：导师/合作者要求 Origin 格式工程图。
 - 解释器：`C:/Users/qilin/miniconda3/envs/editaplot/python.exe`
-- 一条命令直通：
+- 一条命令直通（在技能目录下执行；`origin/scripts/origin_fig.py` 为技能内相对路径）：
   ```bash
   C:/Users/qilin/miniconda3/envs/editaplot/python.exe \
-    C:/Users/qilin/.zcode/skills/paper-figures/origin/scripts/origin_fig.py direct <data.csv> \
+    origin/scripts/origin_fig.py direct <data.csv> \
     --template trend --claim "科学论断" --x-title "Time (s)" --y-title "Power (W)" \
     --x t_s --y "power_W" --auto --name fig3a --output-dir <out>
   ```

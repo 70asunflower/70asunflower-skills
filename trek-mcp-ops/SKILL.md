@@ -11,7 +11,7 @@ MCP server with **135 tools** (trips, days, places, itinerary timing, budgets, p
 reservations, transit, maps). This skill is the complete runbook: **start it, drive it,
 shut it down.**
 
-**Skill folder:** `C:\Users\qilin\.workbuddy\skills\trek-mcp-ops`
+**Skill folder:** 本技能目录（各 runtime 的 `skills/trek-mcp-ops/`，junction 到仓库 `my-skills/trek-mcp-ops/`）
 Run every command from that folder. The two `.cmd` launchers find Node themselves, so
 you never need a Node path and `node` does not have to be on PATH.
 
@@ -20,7 +20,7 @@ you never need a Node path and `node` does not have to be on PATH.
 ## Quick start (3 commands)
 
 ```
-cd C:\Users\qilin\.workbuddy\skills\trek-mcp-ops
+cd <本技能目录>
 trek.cmd start                                  # brings up Docker + TREK + proxy, then self-tests
 trek-call.cmd --list trip                       # see what you can do
 trek.cmd stop                                   # when finished — frees all resources

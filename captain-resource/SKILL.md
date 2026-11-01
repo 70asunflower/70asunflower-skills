@@ -9,7 +9,7 @@ Add a URL or resource to the correct learning repository following the 3-place u
 
 ## Step 1: Choose the right repository
 
-Three repos exist under `P:\my_project\`. Pick the best match:
+Three repos exist under `P:\my_project\`（P: 为可移动/网络盘——未挂载时先挂载，盘符以实际为准）. Pick the best match:
 
 | Repo | Focus |
 |------|-------|

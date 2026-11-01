@@ -192,7 +192,7 @@ LaTeX 的 `\tableofcontents` 会自动输出目录标题，因此模板和转换
 
 如果源 Markdown 没有自带编号，也可以继续使用同一策略；标题会按原文展示，只是不显示 LaTeX 自动编号。若用户明确要求 LaTeX 自动编号，再把 `secnumdepth` 调回合适层级。
 
-目录页码需要至少编译两次 XeLaTeX。
+目录页码需要至少编译两次 XeLaTeX——环境细则与排障见「编译说明」，本节不重复。
 
 ## 字体规范
 
@@ -330,7 +330,7 @@ value = (-1)^sign × mantissa × 2^exponent
 \fancyhead[R]{\small\color{Primary}\leftmark}
 ```
 
-长文档如果希望目录包含三级标题，应设置 `\setcounter{tocdepth}{3}`。目录页码需要至少编译两次 XeLaTeX。
+目录深度（`tocdepth`）与编译遍数见「目录与章节编号规范」与「编译说明」。
 
 ## 数学变量与下划线规范
 
@@ -397,19 +397,4 @@ xelatex -interaction=nonstopmode -halt-on-error main.tex
 
 ## 目录与编号推荐策略
 
-对于源 Markdown 已经自带编号的长文档，推荐：
-
-```latex
-\setcounter{tocdepth}{3}
-\setcounter{secnumdepth}{0}
-```
-
-并使用普通标题命令：
-
-```latex
-\section{一级标题}
-\subsection{二级标题}
-\subsubsection{三级标题}
-```
-
-这样 LaTeX 不会额外打印自动编号，但普通标题仍会自动写入目录并更新页眉。不要大量使用 `\section* + \addcontentsline`，否则目录和页眉更容易失效。
+见上文「目录与章节编号规范」——那节是本规则的唯一完整版（`tocdepth=3` + `secnumdepth=0` + 普通标题命令 + 为什么不用 `\section* + \addcontentsline`），此处不再重复。

@@ -31,7 +31,7 @@ git -c credential.helper="!gh auth git-credential" push
 `gh` is already logged in as `70asunflower`. Plain `git push` fails because terminal credential prompts are blocked.
 
 ## 3. LFS awareness
-- LFS quota: **1 GB** (was ~927 MB used — near limit). Watch it.
+- LFS quota: **1 GB**（2026-10 快照时 ~927 MB used——数值会漂移，用前 `gh api` 现查）。Watch it.
 - `.sy` data files are **NOT** LFS-tracked → safe to commit freely.
 - Only `temp/*.exe` and `*.db` are LFS. A fresh SiYuan installer (`siyuan-3.7.x-win.exe`, ~200 MB) is NOT auto-LFS and will blow GitHub's 100 MB hard limit.
 

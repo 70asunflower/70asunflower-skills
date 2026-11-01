@@ -5,7 +5,7 @@ description: "Jupyter Notebook (.ipynb) 与 IDE 打开状态下的结构化文�
 
 # notebook-patching：Jupyter Notebook 与受限文件安全修改指南
 
-在 AI Agent 辅助编程中，修改 `.ipynb`（Jupyter Notebook）经常遭遇“修改极慢”、“反复报错报错”、“改了却像没改一样”的困境。本技能总结了核心根因与标准化高效率路径。
+在 AI Agent 辅助编程中，修改 `.ipynb`（Jupyter Notebook）经常遭遇“修改极慢”、“反复报错”、“改了却像没改一样”的困境。本技能总结了核心根因与标准化高效率路径。
 
 ---
 
@@ -26,7 +26,7 @@ description: "Jupyter Notebook (.ipynb) 与 IDE 打开状态下的结构化文�
 
 ---
 
-## 二、黄金避坑五原则
+## 二、黄金避坑六原则
 
 - **原则 1：通过文件写入工具写至系统临时目录，严禁终端内联拼接（No Inline One-Liners）**
   - 永远不要用 `python -c "..."` 或在 PowerShell 里拼接复杂的多行 Python。
@@ -44,10 +44,10 @@ description: "Jupyter Notebook (.ipynb) 与 IDE 打开状态下的结构化文�
 - **原则 5：IDE 缓冲区刷新提醒与交付防覆盖（The Stale Cache & Revert Rule）**
   - 外部脚本修改磁盘后，VS Code / Antigravity IDE 对已打开且处于激活态的 `.ipynb` 或 SVG 图表**不会静默热重载**，甚至可能被 IDE 的 Auto-Save（自动保存）反向冲刷覆盖。
   - 交付后必须明确提醒用户：**只刷新/还原最主要的 notebook 文件**，按 `Ctrl+Shift+P` 执行 `File: Revert File`（还原文件）或重新打开该 notebook 文件标签页，确保 IDE 加载磁盘最新内容。
-- **原则 6：关联架构图排版安全与 snap 无头视觉门禁（SVG Anti-Overlap Gate）**
-  - **局部坐标隔离**：卡片内部的数值面板、状态块必须使用独立 `<g transform="translate(x, y)">` 子容器隔离局部坐标系，杜绝局部小 `y` 坐标逃逸回父级导致文字层叠；
-  - **文本行宽预算**：SVG `<text>` 不会自适应换行，长文本必须按容器宽度与字号精算拆分为多行（垂直步长 $16\sim22\text{px}$）；
-  - **强制无头渲染审查**：严禁仅通过 XML 语法检查就交付，必须调用 `snap` CLI 渲染高清 PNG，并使用 `view_file` 亲自审查文字排版无重叠无粘连。
+- **原则 6：SVG/图表改动必须过专门的质量门（规则真相源在别处，此处只留指针）**
+  SVG 排版防重叠（局部坐标隔离、行宽预算）与无头渲染门禁的完整规则归 **`visual-diagrams`** 技能
+  （`../visual-diagrams/SKILL.md`）；几何级断言（文字压线/箭头悬空/标签偏心）用 **`layoutfix`**
+  的 `check --strict`。本技能不复述细则——改完 SVG 后过这两道门再交付。
 
 ---
 

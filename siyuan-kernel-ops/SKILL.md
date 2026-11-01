@@ -203,8 +203,6 @@ Every entry below cost real debugging or real data loss. Each is a **still-curre
 
 **Q20 · The user may be editing the same doc while you operate on it — and their edits include deletions.** A manual edit that lands between your `exportMdContent` baseline and the delete+rebuild gets overwritten, and the user's client can then sync its newer tree back — end state can mix both. Export the baseline immediately before surgery, not at session start; afterwards verify a fresh export for BOTH your marker strings and the user's content markers (their newest note, their added sections). Content that exists in your local copy but not in SiYuan is not automatically "lost" — the user may have deleted it on purpose; never "restore" it without asking. `verify_markers` in `scripts/siyuan_surgery.py` implements the dual-marker check.
 
-> Renumbered in v3.0.0: older notes citing §12.x map to Q1–Q19 in order (§12.5/§12.20 merged into §1, §12.12 into Q10).
-
 ## 9. Authoring workflow (primary use case)
 
 1. **Dedup first** — search before creating; prefer append or a block reference over a duplicate doc.
