@@ -6,6 +6,9 @@ agent_created: true
 
 # md2docx-formal — Markdown → 规范 Word 工程文档
 
+
+> 转完必须跑 **`strict-docx-audit`** 技能做 12 项质检（字体、编号、上标、保真、
+> 标题层级、表格、TOC、页面、eastAsia、空段），全部通过再交付。
 ## Purpose
 
 Turn a Chinese Markdown paper / report / thesis into a formally typeset `.docx` that meets

@@ -78,6 +78,15 @@ python scripts/skillsync.py prune         # 清理断链：技能删了、juncti
 不报错，但 agent 会看到一个行为不可预期的技能条目。一次删 7 个技能会在 6 个 agent
 目录里留下 42 条断链，`doctor` 只会逐条报，不会告诉你「删干净了没有」。
 
+**还要 grep 旧名字**：别的技能正文里可能写着「画图 → 某某技能」，删了/改名了就成死指针，
+而 `lint` 的 E6 只查路径、不查技能名，抓不到。删完跑一遍：
+
+```bash
+grep -rn "<旧技能名>" --include=SKILL.md .
+```
+
+改完再 `lint_skills.py`。
+
 **从某 agent 目录吸收新技能**：`python scripts/skillsync.py adopt --only <skill> --apply`。
 
 ## 提交闸门

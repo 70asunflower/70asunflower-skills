@@ -7,6 +7,9 @@ description: 用网页版 AI（默认千问 chat.qwen.ai，跑在用户本机 Ed
 
 让网页版 AI 按用户的大纲逐章生成教程，每章生成完立即截获内容存进思源，边生成边保存、全程无需人工盯守。**默认接管用户本机 Edge（WebBridge，复用登录态），不用需要重新登录的隔离浏览器。**全部技术细节已固化在 scripts/ 里，不要现场重写脚本、不要用系统剪贴板、不要在 shell 里内联中文 JSON。
 
+
+> 这是 `tutorial-writer` 的**执行方式之一**（用网页版 AI 省 token）。
+> 内容质量规范、大纲排序、三道门自查都在 `tutorial-writer`，本技能只管怎么跑。
 ## 前置条件
 
 - WebBridge（`~/.kimi-webbridge/`）+ Edge 扩展：脚本会自动启动守护进程；扩展连接不上时提示用户打开 Edge 检查扩展。

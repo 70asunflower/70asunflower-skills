@@ -22,7 +22,7 @@ description: 用本机 snap CLI 截图/体检/像素对比页面渲染效果，�
 | 需要登录态的真实页面 | WebBridge / control-browser（本技能每次用全新临时 profile，无登录态） |
 | 需要点击、填表、滚动等交互 | control-browser |
 | 桌面应用画面 | Computer Use |
-| SVG 图交付思源 | svg-diagram-pipeline（其渲染环节与本工具同原理） |
+| SVG 图交付思源 | visual-diagrams（其渲染环节与本工具同原理） |
 
 ## 四种模式
 

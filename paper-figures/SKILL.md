@@ -9,7 +9,7 @@ metadata:
   task_type: open-ended
   related_skills:
     - academic-paper
-    - ieee-engineering-paper-writer
+    - paper-writing
 ---
 
 # paper-figures — 学术论文图表与海报生产（统一入口）
