@@ -86,6 +86,10 @@ COMMENT_PREFIXES = ("#", "//", "/*", "*", "--")
 CODE_EXTS = {".py", ".js", ".ts", ".jsx", ".tsx", ".java", ".c", ".h", ".cpp", ".hpp", ".cc",
              ".cs", ".go", ".rs", ".rb", ".php", ".swift", ".kt", ".scala", ".lua", ".r",
              ".sh", ".ps1", ".bat", ".sql", ".ipynb", ".vue", ".dart", ".m"}
+
+# 原件与媒体附件：抓下来的快照，不可编辑，不单独配日志（来源与抓取时间记在引用它的正文条目里）
+ORIGINAL_EXTS = {".pdf", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg",
+                 ".mp4", ".mov", ".mkv", ".mp3", ".wav", ".m4a", ".zip", ".7z", ".tar", ".gz"}
 REQUIRED_SW_DOCS = ("PRD.md", "Design.md", "TDD.md", "开发进度.md")
 PROGRESS_TODO = {"", "—", "-", "待办"}
 KNOWN_STATUS = {"待办", "开发中", "待测试", "测试通过", "已审核"}
@@ -428,6 +432,8 @@ def fix_project(root: Path, model: str, rows: list[tuple[str, str, str]] | None,
         for f in iter_entries(base):
             if f.name.startswith(".") or f.name.endswith(".log.md") or in_releases(f, root):
                 continue
+            if f.suffix.lower() in ORIGINAL_EXTS:
+                continue
             lg = f.parent / (f.stem + ".log.md")
             if not lg.exists():
                 lg.write_text(entry("建档", f"为 {f.name} 补建日志"), encoding="utf-8", newline="\n")
@@ -527,6 +533,8 @@ def run_project_check(root: Path) -> None:
                 continue
             if f.suffix == ".md":
                 scan_markdown(f, rel)
+            if f.suffix.lower() in ORIGINAL_EXTS:
+                continue  # 原件快照不单独配日志
             if not (f.parent / (f.stem + ".log.md")).exists():
                 add("E", "缺修改日志", rel, 0,
                     f"每个正式文件必须配同名 {f.stem}.log.md（记修改人、模型、原因）")

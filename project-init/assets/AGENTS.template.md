@@ -58,7 +58,7 @@
 
 - 命名：`<主名>.log.md`。`docs/报告.md` → `docs/报告.log.md`；`docs/report.docx` → `docs/report.log.md`；`code/main.py` → `code/main.log.md`。
 - **必须记录**：新建正式文件（首条写明用途）；对正式文件的每次实质修改；重命名、移动、删除（记去向与原因）。高频行级小改动可按日合并为一条，细节历史由 git commit 承担。
-- **无需日志**：根目录文件（`AGENTS.md`、`README.md`、各 agent 入口）、`.gitignore`、`docs/releases/` 交付快照、`memory/` 下的两份记忆文件。
+- **无需日志**：根目录文件（`AGENTS.md`、`README.md`、各 agent 入口）、`.gitignore`、`docs/releases/` 交付快照、`memory/` 下的两份记忆文件、**原件快照**（抓下来的 PDF/图片/音视频——它们不可编辑，来源与抓取时间记在引用它的正文条目里）。
 
 ### 3.2 条目格式（`模型：` 必填）
 

@@ -95,6 +95,10 @@ COMMENT_PREFIXES = ("#", "//", "/*", "*", "--")
 CODE_EXTS = {".py", ".js", ".ts", ".jsx", ".tsx", ".java", ".c", ".h", ".cpp", ".hpp", ".cc",
              ".cs", ".go", ".rs", ".rb", ".php", ".swift", ".kt", ".scala", ".lua", ".r",
              ".sh", ".ps1", ".bat", ".sql", ".ipynb", ".vue", ".dart", ".m"}
+
+# 原件与媒体附件：快照类文件，不单独配日志（与 project-init 的 check 同源）
+ORIGINAL_EXTS = {".pdf", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg",
+                 ".mp4", ".mov", ".mkv", ".mp3", ".wav", ".m4a", ".zip", ".7z", ".tar", ".gz"}
 # 存放错位判定: 明确属于另一侧的扩展名（.md 在 code/ 合法，故文档侧只查重型文档）
 CODE_STRICT_EXTS = {".py", ".js", ".ts", ".tsx", ".jsx", ".java", ".c", ".cpp", ".hpp",
                     ".cs", ".go", ".rs", ".swift", ".kt", ".vue", ".dart"}
@@ -322,7 +326,7 @@ def scan_logs(root: Path) -> None:
                         add("E", "C", "日志缺模型", rel,
                             "每条日志必须写明「模型：<模型官方名>」，否则无法追溯是谁改的", 8)
                 continue
-            if not (f.parent / (f.stem + ".log.md")).exists():
+            if not (f.parent / (f.stem + ".log.md")).exists() and f.suffix.lower() not in ORIGINAL_EXTS:
                 add("E", "C", "缺修改日志", rel, f"每个正式文件必须配同名日志 {f.stem}.log.md", 8)
 
 
