@@ -56,7 +56,7 @@ python scripts/skillsync.py gitignore     # 刷新 .gitignore 第三方区块（
 python scripts/skillsync.py prune         # 清理断链：技能删了、junction 还在（默认 dry-run）
 ```
 
-安全约定：`adopt` / `link` 默认只预演，加 `--apply` 才动文件；源目录只移动到 `_skillsync_backup/<时间戳>/`，绝不删除；删链接用 `os.rmdir`，不会碰目标内容。
+安全约定：`adopt` / `link` / `prune` 默认只预演，加 `--apply` 才动文件；源目录只移动到 `_skillsync_backup/<时间戳>/`，绝不删除。
 
 ## 日常流程
 
@@ -100,6 +100,11 @@ git commit --no-verify                          # 临时跳过
 ## 已知坑位
 
 **Antigravity Windows 扫描机制**：Antigravity 底层在 Windows 下通过标准 `io/fs` 扫描，会跳过 `~/.gemini/config/skills/` 内部的二级 Junction 目录。因此 Antigravity 统一采用原生声明式配置 `~/.gemini/config/skills.json` 直接挂载主库真实路径，绕过子目录 Junction 限制。
+
+**WorkBuddy 的指令通道不是 `AGENTS.md`**：它读的是记忆文件——国内版 `~/.workbuddy/MEMORY.md`、
+海外版 `~/.workbuddy-ai/user-<id>/MEMORY.md`。`rules` 只覆盖 claude / codex / zcode / gemini 四个，
+WorkBuddy 那两个文件里放的是**指针**（指向仓库 AGENTS.md + 三步同步命令），不复制规则正文。
+两处都写必然漂移，指针不会。
 
 **`.gitignore` 区块只减不增**：早期按「目录存在但 git 未跟踪」自动判定第三方技能，结果把
 自己新建的技能也一起扫了进去——从此进不了 git，而且没有任何提示（实测 31 个被排除的目录里
