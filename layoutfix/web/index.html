@@ -83,10 +83,14 @@
     padding-right:4px;
   }
 
+  #stage-wrap{
+    grid-area:stage; position:relative; overflow:hidden;
+    display:flex; min-height:0; min-width:0;
+  }
   #stage{
-    grid-area:stage; overflow:auto; padding:22px; position:relative;
+    flex:1; overflow:auto; padding:22px; position:relative;
     display:flex; align-items:flex-start; justify-content:flex-start;
-    background:var(--bg);
+    background:var(--bg); min-width:0;
   }
   #canvas{
     /* 用 auto 外边距做居中，而不是 justify-content:center。
@@ -332,12 +336,15 @@
   <div id="title"></div>
 </div>
 
-<div id="stage">
+<div id="stage-wrap">
+  <div id="stage">
+    <div id="canvas">{{SVG}}</div>
+    <img id="snap-overlay" alt="" style="display:none">
+    <input id="snap-alpha" type="range" min="0" max="100" value="50" style="display:none" title="快照透明度">
+  </div>
+  <!-- 以下 HUD 挂在不滚动的外框上：缩放/滚动后仍钉在视口角落 -->
   <div id="ruler-top" title="按住往下拖 = 垂直参考线"></div>
   <div id="ruler-left" title="按住往右拖 = 水平参考线"></div>
-  <div id="canvas">{{SVG}}</div>
-  <img id="snap-overlay" alt="" style="display:none">
-  <input id="snap-alpha" type="range" min="0" max="100" value="50" style="display:none" title="快照透明度">
   <div id="alignbar" style="display:none">
     <button data-al="l" title="左对齐">⇤</button>
     <button data-al="ch" title="水平居中">↔</button>
