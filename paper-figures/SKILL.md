@@ -154,6 +154,7 @@ PyMuPDF 渲染 PDF 为 300 DPI 基准图 $\to$ PowerPoint COM 无头静默导出
 - **黄金四段式版面**：Header 24cm $\to$ Sec1 22cm $\to$ Sec2 24cm $\to$ Sec3 56cm $\to$ Footer 24cm；
 - **模板与质检**：`template_poster_pdf.py` + `template_poster_pptx.py` 出图，`check_poster_preflight.py` 做印前预检（画布尺寸 / 出血 / 字号下限 / 图片 DPI），最后 `verify_visual_parity.py` 闭环。
 - **海报专用图表**：`generate_poster_figures.py` 按海报卡片宽度（PPTX 25–28cm、PDF 50–56cm）反算 300 DPI 像素预算，避免放大后糊。
+- **交付与协作**：海报要交给别人继续改或送印时，按 `references/how_to_modify_poster.md` 的双轨说明走（PPTX 给人改、PDF 给厂出片）。
 
 ---
 

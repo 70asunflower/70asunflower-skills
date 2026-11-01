@@ -30,7 +30,6 @@
 | [svg-diagram-pipeline](./svg-diagram-pipeline/) | SVG 交互示意图 → 无头 Chrome 渲染 PNG → 插入思源笔记的完整管线，含 MOSFET 电路符号语法 |
 | [tutorial-writer](./tutorial-writer/) | 为初学者生成详细、正确、图文并茂的学习文档/教程：调研核验 → 依赖排序大纲 → 写作 → 配图（svg-diagram-pipeline）→ 润色（humanizer-zh）→ 三道门自查 → 交付（本地 md，可选思源） |
 | [agent-skills-sync](./agent-skills-sync/) | 多 agent（WorkBuddy/Claude/Codex/ZCode/Gemini）共享用户级技能的单一真相源：junction 分发、状态矩阵、漂移分类与冲突保护 |
-| [academic-poster](./academic-poster/) | 学术海报与易拉宝设计：60×160cm 印刷规范、PowerPoint 1:2 几何缩放、OpenXML 原生矢量注入、CJK 避头尾禁则。**已停用**，能力并入 paper-figures，此处留作工艺参考 |
 | [paper-review](./paper-review/) | LaTeX/IEEEtran 论文投稿前审阅与修改：本机编译环境、静态健康、句级审阅、术语与引用、图表与陈述强度一致性 |
 | [ieee-engineering-paper-writer](./ieee-engineering-paper-writer/) | IEEE/工程论文写作六模式：audit / rewrite / causal-chain / forensic / cite-lint / budget-control，附十项工程写作铁律与反模式库 |
 | [find-cited-papers-by-venue](./find-cited-papers-by-venue/) | 按「期刊/会议 + 主题」用 OpenAlex 查高被引论文（带 DOI 与引文数），用于找范本、文献调研与选刊参考 |

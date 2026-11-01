@@ -1,8 +1,0 @@
-# 学术海报与易拉宝生产管线依赖库
-python-pptx>=0.6.21
-reportlab>=4.0.0
-pymupdf>=1.23.0
-matplotlib>=3.7.0
-pillow>=9.5.0
-scipy>=1.10.0
-pywin32>=306; sys_platform == 'win32'
