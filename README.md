@@ -89,7 +89,7 @@
 这些技能在主库里的位置示意：
 
 ```
-my-skills/
+70asunflower-skills/
 ├── agent-skills-sync/     自制
 ├── siyuan-kernel-ops/     自制
 ├── humanizer-zh/          外部 · 去 AI 味润色（写长文必过）

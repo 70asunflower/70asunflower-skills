@@ -598,6 +598,15 @@ def _backup(fig: Path, raw: str) -> None:
         bak.write_bytes(raw.encode("utf-8"))
 
 
+def _inner_text(raw: str, t: dict) -> str:
+    """元素内部的可见文字（去掉 tspan 等标签、压平空白）。"""
+    if t["name"] != "text":
+        return ""
+    s0, e0 = _text_region(raw, t)
+    inner = raw[t["end"]:e0 - len("</text>")] if e0 > t["end"] else ""
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]*>", "", inner)).strip()
+
+
 def _text_label(raw: str, eid: str) -> str | None:
     """text 元素的内容摘要（前 16 字）。清单里有了它，AI 才能把 text:11
     对到「某行字」上——重新生成图导致编号漂移时，还能按内容重新对齐。"""
@@ -605,19 +614,50 @@ def _text_label(raw: str, eid: str) -> str | None:
         t = _locate(raw, eid)
     except KeyError:
         return None
+    return _inner_text(raw, t)[:16] or None
+
+
+def describe(raw: str, eid: str) -> str:
+    """这个编号现在到底指着什么。改完/改前打出来，改错元素立刻能看见。"""
+    try:
+        t = _locate(raw, eid)
+    except KeyError:
+        return f"{eid}（不存在）"
+    txt = _inner_text(raw, t)
+    if txt:
+        return f"{eid}「{txt[:20]}」"
+    return f'{eid} <{t["name"]} {_attr(t["text"], "x") or "?"},{_attr(t["text"], "y") or "?"}>'
+
+
+def _guard(raw: str, eid: str, expect: str | None) -> None:
+    """改之前先核对目标内容。
+
+    编号是**位置序号**（第 N 个 <text>），任何图层调整都会让全图编号前后移。
+    拿着旧编号去改，不会报错，只会静默改到另一个元素上——真实事故：
+    修一处坏折行，用漂移后的 text:11 把另一整行字换成了这行的内容。
+    宁可在这里失败，也不要让改错悄悄落盘。
+    """
+    if not expect:
+        return
+    t = _locate(raw, eid)
     if t["name"] != "text":
-        return None
-    s0, e0 = _text_region(raw, t)
-    inner = raw[t["end"]:e0 - len("</text>")] if e0 > t["end"] else ""
-    txt = re.sub(r"\s+", " ", re.sub(r"<[^>]*>", "", inner)).strip()
-    return txt[:16] or None
+        raise ValueError(f"{eid} 是 <{t['name']}>，不是文字，--expect 用不上"
+                         f"——形状按 {describe(raw, eid)} 认")
+    txt = _inner_text(raw, t)
+    if expect not in txt:
+        raise ValueError(
+            f"{eid} 现在是「{txt[:24]}」，不含「{expect}」"
+            f"——编号多半已漂移（图层调整会重排编号），先 ls 重新查"
+        )
 
 
-def move(fig: Path, eid: str, dx: float, dy: float, note: str = "") -> dict:
+def move(fig: Path, eid: str, dx: float, dy: float, note: str = "",
+         expect: str | None = None) -> dict:
     """改文件 + 记一行清单。返回实际落地的位移。"""
     if not (math.isfinite(dx) and math.isfinite(dy)):
         raise ValueError("位移必须是有限数值")
     raw = read_raw(fig)
+    _guard(raw, eid, expect)
     _backup(fig, raw)
     new = apply_move(raw, eid, dx, dy)
     if new == raw:
@@ -633,13 +673,15 @@ def move(fig: Path, eid: str, dx: float, dy: float, note: str = "") -> dict:
     return op
 
 
-def set_values(fig: Path, eid: str, attrs: dict) -> dict:
+def set_values(fig: Path, eid: str, attrs: dict,
+               expect: str | None = None) -> dict:
     """改一组属性并记一行清单。旧值一并记下，撤销才可能精确。
 
     宽高必须一次改完再记一条：拆成两次 /set 会变成两条 op，
     用户按一次撤销只退回一半，比不改还糟。
     """
     raw = read_raw(fig)
+    _guard(raw, eid, expect)
     _backup(fig, raw)
     t = _locate(raw, eid)
     cur_style = _get_style(t["text"])
@@ -715,9 +757,11 @@ def _retext_raw(raw: str, eid: str, text: str) -> tuple[str, str]:
     return raw[:s0] + new_el + raw[e0:], raw[s0:e0]
 
 
-def set_text(fig: Path, eid: str, text: str) -> dict:
+def set_text(fig: Path, eid: str, text: str,
+             expect: str | None = None) -> dict:
     """改文字内容并记一行清单。from 存整个旧元素字节，撤销按字节拼回。"""
     raw = read_raw(fig)
+    _guard(raw, eid, expect)
     _backup(fig, raw)
     new, old_region = _retext_raw(raw, eid, str(text))
     if new == raw:

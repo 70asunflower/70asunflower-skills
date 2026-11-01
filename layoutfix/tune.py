@@ -341,9 +341,13 @@ def serve(fig: Path, port: int = 8770, open_browser: bool = True) -> None:
                     req = json.loads(self.rfile.read(n) or b"{}")
                     with lock:
                         f = get_fig()
-                        op = edit.set_text(f, req["id"], str(req.get("text") or ""))
+                        # 返回实际命中的元素：编号是位置序号，图层动过就会漂移，
+                        # 调用方（尤其 agent 脚本）得能一眼看出改的是不是那一行。
+                        found = edit.describe(edit.read_raw(f), req["id"])
+                        op = edit.set_text(f, req["id"], str(req.get("text") or ""),
+                                           expect=req.get("expect"))
                         stacks_for(f).clear()
-                    self._send(json.dumps({"ok": True, "op": op},
+                    self._send(json.dumps({"ok": True, "op": op, "found": found},
                                           ensure_ascii=False).encode("utf-8"))
                 except Exception as exc:                 # noqa: BLE001
                     self._send(json.dumps({"ok": False, "error": str(exc)},
@@ -356,9 +360,11 @@ def serve(fig: Path, port: int = 8770, open_browser: bool = True) -> None:
                     with lock:
                         f = get_fig()
                         attrs = req.get("attrs") or {req["attr"]: req["value"]}
-                        edit.set_values(f, req["id"], attrs)
+                        found = edit.describe(edit.read_raw(f), req["id"])
+                        edit.set_values(f, req["id"], attrs, expect=req.get("expect"))
                         stacks_for(f).clear()
-                    self._send(b'{"ok":true}')
+                    self._send(json.dumps({"ok": True, "found": found},
+                                          ensure_ascii=False).encode("utf-8"))
                 except Exception as exc:                 # noqa: BLE001
                     self._send(json.dumps({"ok": False, "error": str(exc)},
                                           ensure_ascii=False).encode("utf-8"))
@@ -372,7 +378,7 @@ def serve(fig: Path, port: int = 8770, open_browser: bool = True) -> None:
                 with lock:
                     f = get_fig()
                     edit.move(f, req["id"], float(req["dx"]), float(req["dy"]),
-                              note=req.get("note", ""))
+                              note=req.get("note", ""), expect=req.get("expect"))
                     stacks_for(f).clear()
                 self._send(b'{"ok":true}')
             except Exception as exc:                     # noqa: BLE001

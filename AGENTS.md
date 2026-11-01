@@ -8,7 +8,7 @@
 <!-- BEGIN skillsync-rules -->
 ## 用户级技能库
 
-本机所有 AI agent 的用户级技能共享同一个仓库：`D:\Project\workspace\my_github\my-skills`。
+本机所有 AI agent 的用户级技能共享同一个仓库：`D:\Project\workspace\my_github\70asunflower-skills`。
 各 agent 的 skills 目录里每一项都是指向该仓库的目录联结（junction），不是副本。
 
 - **修改技能**：直接改。改 agent 目录还是改仓库，都是同一份文件。

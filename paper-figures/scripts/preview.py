@@ -59,7 +59,7 @@ def find_layoutfix() -> Path | None:
     → 环境变量指定。都找不到就返回 None，调用方静默降级。
     """
     cands = [
-        HERE.parent.parent / "layoutfix" / "layoutfix.py",   # my-skills/layoutfix/
+        HERE.parent.parent / "layoutfix" / "layoutfix.py",   # <repo>/layoutfix/
         HERE / "layoutfix" / "layoutfix.py",                 # 旧位置，兼容
     ]
     env = os.environ.get("LAYOUTFIX_CLI")

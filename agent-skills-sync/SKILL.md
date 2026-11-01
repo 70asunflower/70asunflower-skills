@@ -11,7 +11,7 @@ agent_created: true
 ## 架构
 
 ```
-D:\Project\workspace\my_github\my-skills\   ← 唯一真相源（git，公开仓库）
+D:\Project\workspace\my_github\70asunflower-skills\   ← 唯一真相源（git，公开仓库）
         │
         ├── ~/.workbuddy/skills/<skill>      ← junction（国内版）
         ├── ~/.workbuddy-ai/skills/<skill>   ← junction（海外版，独立配置目录）
@@ -34,7 +34,7 @@ D:\Project\workspace\my_github\my-skills\   ← 唯一真相源（git，公开�
 
 | 判断 | 选了什么 | 选反了的代价 |
 |---|---|---|
-| 主库 | 用已有的 `my-skills`，不另建目录 | 公开仓库→第三方必须隔离；在 D 盘→C 盘重置不丢；已按 public/personal 分过类→「什么该入库」有现成标准。另建目录这些约束一个都不存在 |
+| 主库 | 用已有的 `70asunflower-skills`，不另建目录 | 公开仓库→第三方必须隔离；在 D 盘→C 盘重置不丢；已按 public/personal 分过类→「什么该入库」有现成标准。另建目录这些约束一个都不存在 |
 | 链接粒度 | 逐技能 junction | 整目录链接省事，但每个 agent 被迫看到全部技能、agent 自己装的会混进主库、没法按 agent 过滤 |
 | 冲突 | 隔离待人工定夺，不强行合并 | 取「最全的一份」可能覆盖某个 agent 里更新的改动；隔离才让首次迁移安全落地 |
 

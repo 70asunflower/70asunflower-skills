@@ -22,7 +22,7 @@ fig.svg  文字 19 · 形状 6 · 箭头 4
 ## 命令
 
 工具就是本技能目录（各 runtime 的 `skills/layoutfix/`，junction 到仓库
-`my-skills/layoutfix/`）。**下面的命令都在该目录下执行**，图可以给绝对路径。
+仓库的 `layoutfix/`）。**下面的命令都在该目录下执行**，图可以给绝对路径。
 
 ```bash
 cd <本技能目录>
@@ -33,12 +33,18 @@ $PY layoutfix.py check  fig.svg --json       # 给程序/agent 读
 $PY layoutfix.py check  fig.svg --strict     # CI 门禁：有 error 即退出码 7
 $PY layoutfix.py tune   fig.svg              # 起本地界面，人拖；顶栏下拉切换同目录其他图
 $PY layoutfix.py nudge  fig.svg --id text:4 --dy -4   # 命令行微调（agent 用）
+$PY layoutfix.py nudge  fig.svg --id text:4 --dy -4 --expect "DOUT/DIN"   # 带上目标内容，改错就拒绝
 $PY layoutfix.py ops    fig.svg              # 看已落地的改动清单
 $PY layoutfix.py clean  fig.svg              # 清理清单：剔零位移、合并同元素碎片
 $PY layoutfix.py ls     fig.svg              # 列出可拖元素
 ```
 
 依赖：Python 3.10+ 与 `pymupdf`。零前端依赖、无构建步骤。
+
+> **`text:4` 是位置序号，不是身份证。** 图层置顶/上移会让全图编号前后移，
+> 拿着旧编号改不会报错，只会静默改到另一行字上。规则：**动过图层就重新 `ls`**；
+> 批量改动时每条都带 `--expect "目标里的几个字"`，对不上它会拒绝并告诉你
+> 那个编号现在指着什么。界面没这个坑——`refresh()` 每次重新取带编号的副本。
 
 ## 五类检查
 

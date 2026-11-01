@@ -11,7 +11,7 @@ description: 用网页版 AI（默认千问 chat.qwen.ai，跑在用户本机 Ed
 > 这是 `tutorial-writer` 的**执行方式之一**（用网页版 AI 省 token）。
 > 内容质量规范、大纲排序、三道门自查都在 `tutorial-writer`，本技能只管怎么跑。
 
-**以下所有命令都在本技能目录下执行**（各 runtime 的 `skills/ai-tutorial-pipeline/`，junction 到仓库 `my-skills/ai-tutorial-pipeline/`），统一写作 `python scripts/…`。
+**以下所有命令都在本技能目录下执行**（各 runtime 的 `skills/ai-tutorial-pipeline/`，junction 到仓库 `70asunflower-skills/ai-tutorial-pipeline/`），统一写作 `python scripts/…`。
 
 ## 前置条件
 

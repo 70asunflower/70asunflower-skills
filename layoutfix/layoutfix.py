@@ -35,9 +35,12 @@ def cmd_tune(a) -> int:
 
 def cmd_nudge(a) -> int:
     fig = Path(a.file)
-    op = edit.move(fig, a.id, a.dx, a.dy, note=a.note or "cli")
+    raw = edit.read_raw(fig)
+    who = edit.describe(raw, a.id)     # 改前先记下这个编号指着谁
+    op = edit.move(fig, a.id, a.dx, a.dy, note=a.note or "cli",
+                   expect=a.expect)
     k = probe.run(fig)["unit_mm"]
-    print(f"已移动 {op['id']}  dx={op['dx']} dy={op['dy']} 单位"
+    print(f"已移动 {who}  dx={op['dx']} dy={op['dy']} 单位"
           f"（≈ {op['dx'] * k:+.1f} / {op['dy'] * k:+.1f} mm）")
     print(f"清单已追加: {edit.log_path(fig)}")
     return 0
@@ -74,8 +77,12 @@ def cmd_clean(a) -> int:
 
 def cmd_ls(a) -> int:
     fig = Path(a.file)
-    for el in edit.inventory(fig.read_text(encoding="utf-8")):
+    # 必须按字节读：read_text 在 Windows 会把 \r\n 折成 \n，
+    # 而 inventory 是靠字节偏移切内容的，一折就切错位置。
+    for el in edit.inventory(edit.read_raw(fig)):
         print(f"{el['eid']:<14}{el['tag']:<9}{el['hint']}")
+    print("\n编号是位置序号（第 N 个 <text>）。图层置顶/上移会让全图编号前后移，"
+          "\n动过图层就要重新 ls；改动时带 --expect 几个字最稳。")
     return 0
 
 
@@ -101,6 +108,8 @@ def main(argv=None) -> int:
     p.add_argument("--id", required=True, help="元素句柄，如 text:3（用 ls 查）")
     p.add_argument("--dx", type=float, default=0.0)
     p.add_argument("--dy", type=float, default=0.0)
+    p.add_argument("--expect", default=None,
+                   help="目标内容里的几个字，对不上就拒绝改（防编号漂移改错元素）")
     p.add_argument("--note", default="")
     p.set_defaults(fn=cmd_nudge)
 
@@ -117,7 +126,12 @@ def main(argv=None) -> int:
     p.set_defaults(fn=cmd_ls)
 
     a = ap.parse_args(argv)
-    return a.fn(a)
+    try:
+        return a.fn(a)
+    except (ValueError, KeyError, RuntimeError, OSError) as exc:
+        # agent 读的是这一行，不是 traceback：说清哪一步不行、怎么补救。
+        print(f"✗ {exc}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":

@@ -14,7 +14,7 @@ D:\Project\Zcode\snap\code\snap.mjs     ← 主项目，所有修改在这里做
 
 ```bash
 cp "D:/Project/Zcode/snap/code/snap.mjs" \
-   "D:/Project/workspace/my_github/my-skills/paper-figures/scripts/snap/snap.mjs"
+   "D:/Project/workspace/my_github/70asunflower-skills/paper-figures/scripts/snap/snap.mjs"
 ```
 
 改完跑一遍主项目的回归：`node D:/Project/Zcode/snap/code/tests/run-tests.mjs`。

@@ -11,7 +11,7 @@ MCP server with **135 tools** (trips, days, places, itinerary timing, budgets, p
 reservations, transit, maps). This skill is the complete runbook: **start it, drive it,
 shut it down.**
 
-**Skill folder:** 本技能目录（各 runtime 的 `skills/trek-mcp-ops/`，junction 到仓库 `my-skills/trek-mcp-ops/`）
+**Skill folder:** 本技能目录（各 runtime 的 `skills/trek-mcp-ops/`，junction 到仓库 `70asunflower-skills/trek-mcp-ops/`）
 Run every command from that folder. The two `.cmd` launchers find Node themselves, so
 you never need a Node path and `node` does not have to be on PATH.
 
