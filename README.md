@@ -4,50 +4,70 @@
 
 ## Skills 列表
 
-### 通用技能 `public` — 适合所有人使用
+按**用途**分组。标 `personal` 的绑了个人路径 / 账号 / 登录态，别人装了要改；
+其余可以直接拿去用（个别技能含本机解释器路径，按需改一行）。
 
-| Skill | 描述 |
-|-------|------|
-| [md-to-70asunflower-latex](./md-to-70asunflower-latex/) | 将 Markdown 技术博客转换为 70asunflower 风格的 LaTeX 文档，适配 Overleaf XeLaTeX 编译 |
-| [md2docx-formal](./md2docx-formal/) | 将 Markdown 中文工程文档转换为规范排版的 Word（A4、篇/章/节标题层级、1.5 倍行距、自动目录、页眉页脚、GB/T 7714 引用上标），并支持源文档一致性审查 |
-| [notion-im-helper](./notion-im-helper/) | 通过 IM 向 Notion 添加内容，支持闪念速记、待办清单、标题、引用、列表等多种格式 |
-| [notebook-patching](./notebook-patching/) | Jupyter Notebook (.ipynb) 与 IDE 打开状态下的受限文件快速安全修改工作流，规避内联转义与 Auto-Save 内存覆盖冲突 |
-| [feishu-bot-config](./feishu-bot-config/) | 飞书机器人配置管理工具，自动化添加、管理和排查飞书机器人集成 |
-| [ai-tutorial-pipeline](./ai-tutorial-pipeline/) | 用网页版 AI 按大纲逐章生成高质量教程并自动入库思源笔记，含浏览器接管、表格/公式格式校验 |
-| [doc-plain-zh](./doc-plain-zh/) | 中文文档可读性转换：拗口 → 通顺，只改表达、不改逻辑与事实，保持书面正式 |
-| [paper-figures](./paper-figures/) | 学术图表统一入口：matplotlib 投稿矢量图 / Origin 可编辑直通 / python-pptx 示意图三条管线按用途路由；含期刊海报与图文摘要模板、色盲安全检查、视觉一致性校验 |
-| [project-init](./project-init/) | 项目初始化 + 多 agent 规范生成（AGENTS.md + 7 个 agent 入口）+ 巡检修复器 |
-| [project-review](./project-review/) | 项目六维审查评分 + 审计报告，与 project-init 互补 |
-| [siyuan-backup-sync](./siyuan-backup-sync/) | 思源笔记数据仓库的 Git 备份/同步工作流 |
-| [siyuan-kernel-ops](./siyuan-kernel-ops/) | 通过思源内核 HTTP API 安全检索/读写/批量处理笔记库，含端口漂移、上传、索引滞后等坑位手册 |
-| [siyuan-markdown-formula-formatter](./siyuan-markdown-formula-formatter/) | 思源专用 Markdown/LaTeX 公式排版规范，彻底解决公式渲染失败 |
-| [strict-docx-audit](./strict-docx-audit/) | docx 转换后的质量闸：12 项结构与排版检查 |
-| [visual-diagrams](./visual-diagrams/) | 把内容做成图：信息卡长图（HTML/CSS + Playwright）、示意图流程图（手写 SVG → Chrome → 思源）、技术架构图（调用外部 fireworks 风格库）。按输出类型路由，含命名/导出/校验约定；论文数据图与海报归 paper-figures |
-| [layoutfix](./layoutfix/) | 矢量图版面体检与人工微调：查字压图/文字被盖/超画布/箭头悬空/标签偏心，输出毫米级违例清单（--strict 可做交付门禁）；tune 起本地界面人拖即存盘，改动落成可重放的 delta 清单 |
-| [snap](./snap/) | 零依赖页面截图/体检/像素对比 CLI：无头 Chrome 一条命令截图（整页/元素/区域/高清），--audit 程序化检坏图溢出裁切，--diff 视觉回归；agent 确认页面渲染效果首选 |
-| [tutorial-writer](./tutorial-writer/) | 为初学者生成详细、正确、图文并茂的学习文档/教程：调研核验 → 依赖排序大纲 → 写作 → 配图（svg-diagram-pipeline）→ 润色（humanizer-zh）→ 三道门自查 → 交付（本地 md，可选思源） |
-| [agent-skills-sync](./agent-skills-sync/) | 多 agent（WorkBuddy/Claude/Codex/ZCode/Gemini）共享用户级技能的单一真相源：junction 分发、状态矩阵、漂移分类与冲突保护 |
+### 学术与论文 — 写、审、画图、调研报告
+
+| 技能 | 说明 |
+|---|---|
 | [paper-writing](./paper-writing/) | 工程论文写作：六个可执行模式（audit / rewrite / causal-chain / forensic / cite-lint / budget-control）+ 十项铁律 + 反模式库 + IEEE 会议模板 + 引用升序与投稿打包脚本；审阅归 paper-review、画图归 paper-figures |
 | [paper-review](./paper-review/) | LaTeX/IEEEtran 论文投稿前审阅与修改：本机编译环境、静态健康、句级审阅、术语与引用、图表与陈述强度一致性 |
-| [find-cited-papers-by-venue](./find-cited-papers-by-venue/) | 按「期刊/会议 + 主题」用 OpenAlex 查高被引论文（带 DOI 与引文数），用于找范本、文献调研与选刊参考 |
+| [paper-figures](./paper-figures/) | 学术图表统一入口：matplotlib 投稿矢量图 / Origin 可编辑直通 / python-pptx 示意图三条管线按用途路由；含期刊海报与图文摘要模板、色盲安全检查、视觉一致性校验 |
 | [deep-research-report-pipeline](./deep-research-report-pipeline/) | 工程决策类深度调研报告流水线：全网调研 → 分章撰写 → 独立审稿（数字比对 + 独立重算）→ 跨章对齐 → 语言优化 → 整合交付 |
+
+### 图与视觉 — 把内容做成图、检查图有没有毛病
+
+| 技能 | 说明 |
+|---|---|
+| [visual-diagrams](./visual-diagrams/) | 把内容做成图：信息卡长图（HTML/CSS + Playwright）、示意图流程图（手写 SVG → Chrome → 思源）、技术架构图（调用外部 fireworks 风格库）。按输出类型路由，含命名/导出/校验约定；论文数据图与海报归 paper-figures |
+| [snap](./snap/) | 零依赖页面截图/体检/像素对比 CLI：无头 Chrome 一条命令截图（整页/元素/区域/高清），--audit 程序化检坏图溢出裁切，--diff 视觉回归；agent 确认页面渲染效果首选 |
+| [layoutfix](./layoutfix/) | 矢量图版面体检与人工微调：查字压图/文字被盖/超画布/箭头悬空/标签偏心，输出毫米级违例清单（--strict 可做交付门禁）；tune 起本地界面人拖即存盘，改动落成可重放的 delta 清单 |
+
+### 文档与写作 — 格式转换、排版规范、教程生成
+
+| 技能 | 说明 |
+|---|---|
+| [md-to-70asunflower-latex](./md-to-70asunflower-latex/) | 将 Markdown 技术博客转换为 70asunflower 风格的 LaTeX 文档，适配 Overleaf XeLaTeX 编译 |
+| [md2docx-formal](./md2docx-formal/) | 将 Markdown 中文工程文档转换为规范排版的 Word（A4、篇/章/节标题层级、1.5 倍行距、自动目录、页眉页脚、GB/T 7714 引用上标），并支持源文档一致性审查 |
+| [strict-docx-audit](./strict-docx-audit/) | docx 转换后的质量闸：12 项结构与排版检查 |
+| [doc-plain-zh](./doc-plain-zh/) | 中文文档可读性转换：拗口 → 通顺，只改表达、不改逻辑与事实，保持书面正式 |
+| [tutorial-writer](./tutorial-writer/) | 为初学者生成详细、正确、图文并茂的学习文档/教程：调研核验 → 依赖排序大纲 → 写作 → 配图（svg-diagram-pipeline）→ 润色（humanizer-zh）→ 三道门自查 → 交付（本地 md，可选思源） |
+| [ai-tutorial-pipeline](./ai-tutorial-pipeline/) | 用网页版 AI 按大纲逐章生成高质量教程并自动入库思源笔记，含浏览器接管、表格/公式格式校验 |
+
+### 笔记与知识库 — 思源 / Notion 的读写、排版与备份
+
+| 技能 | 说明 |
+|---|---|
+| [siyuan-kernel-ops](./siyuan-kernel-ops/) | 通过思源内核 HTTP API 安全检索/读写/批量处理笔记库，含端口漂移、上传、索引滞后等坑位手册 |
+| [siyuan-backup-sync](./siyuan-backup-sync/) | 思源笔记数据仓库的 Git 备份/同步工作流 |
+| [siyuan-markdown-formula-formatter](./siyuan-markdown-formula-formatter/) | 思源专用 Markdown/LaTeX 公式排版规范，彻底解决公式渲染失败 |
+| [notion-im-helper](./notion-im-helper/) | 通过 IM 向 Notion 添加内容，支持闪念速记、待办清单、标题、引用、列表等多种格式 |
+
+### 工程与项目 — 项目脚手架、代码修改、CAD、工具链维护
+
+| 技能 | 说明 |
+|---|---|
+| [agent-skills-sync](./agent-skills-sync/) | 多 agent（WorkBuddy/Claude/Codex/ZCode/Gemini）共享用户级技能的单一真相源：junction 分发、状态矩阵、漂移分类与冲突保护 |
+| [project-init](./project-init/) | 项目初始化 + 多 agent 规范生成（AGENTS.md + 7 个 agent 入口）+ 巡检修复器 |
+| [project-review](./project-review/) | 项目六维审查评分 + 审计报告，与 project-init 互补 |
+| [notebook-patching](./notebook-patching/) | Jupyter Notebook (.ipynb) 与 IDE 打开状态下的受限文件快速安全修改工作流，规避内联转义与 Auto-Save 内存覆盖冲突 |
 | [3d-printing-cad-design](./3d-printing-cad-design/) | 3D 打印机械 CAD 全流程：build123d / CadQuery 参数化建模、水密性网格校验、STEP→GLB 离线预览、制造交付打包 |
+| [feishu-bot-config](./feishu-bot-config/) | 飞书机器人配置管理工具，自动化添加、管理和排查飞书机器人集成 |
 
+### 个人工作流 — 绑了个人路径 / 账号 / 登录态，别人装了要改
 
-### 个人工作流 `personal` — 包含个人特定配置，他人无需安装
-
-| Skill | 描述 |
-|-------|------|
-| [captain-resource](./captain-resource/) | 资源入库助手，将 URL/文章/工具等添加到 ai-learning-journey、embodied-ai-learning、ic-chip-design-learning 三个学习仓库 |
-| [investment-analysis](./investment-analysis/) | 个人投资分析方法论与操作规程（林奇六分类 + 预测档案系统），含个人工作区路径 |
-| [trek-mcp-ops](./trek-mcp-ops/) | 自部署 TREK 旅行规划器（Docker + 内置 MCP 135 工具）的启停/建行程/排障手册，含本机端口与代理配置 |
-| [xhs-pipeline](./xhs-pipeline/) | 小红书信息收集流水线（profile 驱动：搜索/抓取/审读/合并入库），依赖本机浏览器登录态 |
-
+| 技能 | 说明 |
+|---|---|
+| [investment-analysis](./investment-analysis/) | `personal` · 个人投资分析方法论与操作规程（林奇六分类 + 预测档案系统），含个人工作区路径 |
+| [captain-resource](./captain-resource/) | `personal` · 资源入库助手，将 URL/文章/工具等添加到 ai-learning-journey、embodied-ai-learning、ic-chip-design-learning 三个学习仓库 |
+| [xhs-pipeline](./xhs-pipeline/) | `personal` · 小红书信息收集流水线（profile 驱动：搜索/抓取/审读/合并入库），依赖本机浏览器登录态 |
+| [trek-mcp-ops](./trek-mcp-ops/) | `personal` · 自部署 TREK 旅行规划器（Docker + 内置 MCP 135 工具）的启停/建行程/排障手册，含本机端口与代理配置 |
 
 ## 标签说明
 
-- `public` — 通用技能，不依赖特定配置，任何人都可以使用
-- `personal` — 包含个人 API Key、工作流、习惯等定制化内容，**其他人不需要安装**
+- **分组**（学术与论文 / 图与视觉 / 文档与写作 / 笔记与知识库 / 工程与项目 / 个人工作流）按**用途**划分，方便找。
+- **`personal` 标记**：绑了个人路径、账号或登录态，别人装了需要改配置才能用。没标的可以直接用。
 
 ## 使用方式
 

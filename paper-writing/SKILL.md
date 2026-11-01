@@ -28,8 +28,8 @@ description: "工程类学术论文的写作与打磨：从故事线、大纲、
 3. **证据先于结论**：每个结论后面必须挂一个可核验的观测（数字、图表、引用）。
 4. **归因用排除法**：见 `references/causal_attribution.md`，模板
    `templates/elimination_framework_template.md`
-5. **引用与文献**：维护回填清单 `templates/literature_checklist_template.md`，
-   跑 `scripts/check_monotonic_citations.py`
+5. **引用与文献**：找范本/选刊用 `references/find-papers-by-venue.md`（按 venue + 主题查高被引论文）；
+   维护回填清单 `templates/literature_checklist_template.md`，跑 `scripts/check_monotonic_citations.py`
 6. **版面预算**：`references/submission_packaging.md`，IEEE 模板
    `templates/paper_en_ieee_template.tex`、`templates/paper_zh_template.md`
 7. **图**：矢量 PDF 进终稿，`scripts/convert_figures.py --dpi 300` 出预览
