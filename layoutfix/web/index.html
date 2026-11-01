@@ -132,7 +132,12 @@
     background:var(--panel); border-left:1px solid var(--line2);
     display:flex; flex-direction:column; overflow:hidden;
   }
-  .sec{border-bottom:1px solid var(--line); display:flex; flex-direction:column; min-height:0}
+  .sec{border-bottom:1px solid var(--line); display:flex; flex-direction:column;
+       min-height:0; overflow:hidden}
+  /* 图层树/历史可能几百行：没有滚动容器的话，flex 压缩后内容会溢出
+     画到相邻面板上——文字重叠的根源 */
+  #layers{overflow:auto; max-height:38vh}
+  #hist{overflow:auto; max-height:30vh}
   .sec > h2{
     margin:0; padding:8px 12px; font-size:12.5px; font-weight:500;
     color:var(--mute); background:var(--head); border-bottom:1px solid var(--line);
@@ -272,8 +277,10 @@
     border:1px solid var(--line2); background:var(--artboard);
     box-shadow:0 1px 6px rgba(0,0,0,.2); line-height:0; cursor:crosshair;
     overflow:hidden}
+  #mini-vp{box-shadow:0 0 0 1px rgba(0,0,0,.35)}
   #minimap svg{display:block; width:100%; height:auto; pointer-events:none}
-  #mini-vp{position:absolute; border:1.5px solid var(--sel); pointer-events:none}
+  #mini-vp{position:absolute; border:2px solid var(--sel);
+    background:color-mix(in srgb, var(--sel) 12%, transparent); pointer-events:none}
   #snap-overlay{position:absolute; z-index:3; pointer-events:none; opacity:.5}
   #snap-alpha{position:absolute; z-index:7; width:120px}
   .histrow{display:flex; gap:6px; align-items:baseline; padding:4px 12px;
@@ -1695,10 +1702,16 @@ function renderOps(){
       v.textContent = '图层 ' + (MODELABEL[o.mode] || ('第 ' + o.to + ' 层'));
     } else if(o.op === 'move_multi'){
       const k = state.unit_mm || UNIT_MM;
-      const mv = o.moves || [];
-      v.textContent = '整体 ' + mv.length + ' 个  Δ ' +
-        fmt((mv.length ? mv[0].dx : 0) * k) + ', ' +
-        fmt((mv.length ? mv[0].dy : 0) * k) + ' mm';
+      const it0 = (o.items || [])[0] || {};
+      if('dx' in it0){
+        v.textContent = '整体 ' + o.n + ' 个  Δ ' + fmt(it0.dx * k) + ', ' +
+                        fmt(it0.dy * k) + ' mm';
+      }else{
+        // 纯 set 的整体手势（连线跟随拉伸/批量字号）：显示改了什么
+        const keys = Object.keys(it0.set || {});
+        v.textContent = '整体 ' + o.n + ' 个  ' +
+          keys.map(x=>(ATTRLABEL[x] || x)).join('/') + (keys.length ? '' : '');
+      }
     } else if(o.op === 'set'){
       const to = o.to || {};
       v.textContent = Object.keys(to).map(k=>{
