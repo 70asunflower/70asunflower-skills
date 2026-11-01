@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 320" width="680" height="320" role="img">
+  <title>一份文件，五个 agent</title>
+  <desc>技能主库是唯一真相源，各 agent 的 skills 目录里放的是指向它的目录联结，改一处五处同时生效</desc>
+  <rect x="0.5" y="0.5" width="679" height="319" rx="14" fill="#0f1115" stroke="#232936"/>
+  <text x="36" y="34" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC',sans-serif" font-size="14" font-weight="500" fill="#e6e9ef">仓库是唯一真相源，各 agent 目录里放的是指向它的目录联结</text>
+
+  <rect x="36" y="122" width="200" height="112" rx="11" fill="#1a2130" stroke="#33405a"/>
+  <text x="56" y="160" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC',sans-serif" font-size="14" font-weight="500" fill="#7cc4ff">70asunflower-skills</text>
+  <text x="56" y="182" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC',sans-serif" font-size="12" fill="#8a93a4">28 个技能 · 一份文件</text>
+  <text x="56" y="204" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC',sans-serif" font-size="12" fill="#8a93a4">git 管版本</text>
+
+  <path d="M 236 178 C 320 178, 340 82, 444 82" fill="none" stroke="#33405a" stroke-width="1.5"/>
+  <path d="M 236 178 C 320 178, 340 130, 444 130" fill="none" stroke="#33405a" stroke-width="1.5"/>
+  <path d="M 236 178 L 444 178" fill="none" stroke="#33405a" stroke-width="1.5"/>
+  <path d="M 236 178 C 320 178, 340 226, 444 226" fill="none" stroke="#33405a" stroke-width="1.5"/>
+  <path d="M 236 178 C 320 178, 340 274, 444 274" fill="none" stroke="#33405a" stroke-width="1.5"/>
+
+  <rect x="444" y="64" width="200" height="36" rx="8" fill="#171a21" stroke="#2a2f3a"/>
+  <text x="466" y="87" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC',sans-serif" font-size="13" fill="#e6e9ef">Claude Code</text>
+  <rect x="444" y="112" width="200" height="36" rx="8" fill="#171a21" stroke="#2a2f3a"/>
+  <text x="466" y="135" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC',sans-serif" font-size="13" fill="#e6e9ef">Codex</text>
+  <rect x="444" y="160" width="200" height="36" rx="8" fill="#171a21" stroke="#2a2f3a"/>
+  <text x="466" y="183" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC',sans-serif" font-size="13" fill="#e6e9ef">ZCode</text>
+  <rect x="444" y="208" width="200" height="36" rx="8" fill="#171a21" stroke="#2a2f3a"/>
+  <text x="466" y="231" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC',sans-serif" font-size="13" fill="#e6e9ef">Gemini CLI</text>
+  <rect x="444" y="256" width="200" height="36" rx="8" fill="#171a21" stroke="#2a2f3a"/>
+  <text x="466" y="279" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC',sans-serif" font-size="13" fill="#e6e9ef">WorkBuddy</text>
+
+  <text x="340" y="310" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC',sans-serif" font-size="12" fill="#ffb454">改一处 = 五处同时生效，没有副本可漂移</text>
+</svg>
