@@ -479,11 +479,16 @@ def cmd_doctor(cfg, args):
     return 0 if issues == 0 else 1
 
 
-def update_gitignore(cfg):
-    """把未纳入版本控制的技能目录写进 .gitignore 标记区块。
+def update_gitignore(cfg, add=None):
+    """刷新 .gitignore 的第三方技能标记区块。
 
     主库是公开 git 仓库时，第三方技能不该出现在 git status 里，
-    也不该被 git add -A 顺手提交。这里按「目录存在但 git 未跟踪」自动判定。
+    也不该被 git add -A 顺手提交。
+
+    **只减不增**：已有排除项保留（已跟踪的自动移出），但绝不自动新增。
+    原来按「目录存在但 git 未跟踪」判定，等于把用户刚建的新技能也当成第三方
+    一起排除——那些技能从此进不了 git，直到有人发现。新技能必须先显式
+    `gitignore --add <name>` 才会被排除。
     """
     hub = cfg["hub"]
     gi = hub / ".gitignore"
@@ -508,21 +513,30 @@ def update_gitignore(cfg):
             continue
         skills.append(ch.name)
     untracked = sorted(s for s in skills if s not in tracked)
-    if not untracked:
-        untracked = []
 
     BEGIN = "# >>> skillsync: 第三方技能，不纳入本仓库版本控制 >>>"
     END = "# <<< skillsync <<<"
     text = gi.read_text(encoding="utf-8") if gi.exists() else ""
+    prev = set()
     if BEGIN in text and END in text:
         pre = text.split(BEGIN)[0].rstrip()
         post = text.split(END, 1)[1].lstrip("\n")
+        for line in text.split(BEGIN)[1].split(END)[0].splitlines():
+            line = line.strip().rstrip("/")
+            if line and not line.startswith("#"):
+                prev.add(line)
     else:
         pre, post = text.rstrip(), ""
 
+    if add:
+        prev |= set(add)
+    # 已纳入 git 的自动移出；其余保留。新出现的一律不加，交给 --add 显式决定。
+    blocked = sorted(s for s in prev if s in untracked)
+    newcomers = sorted(s for s in untracked if s not in prev)
+
     block_lines = [BEGIN]
-    if untracked:
-        block_lines += [f"{name}/" for name in untracked]
+    if blocked:
+        block_lines += [f"{name}/" for name in blocked]
     else:
         block_lines.append("# （当前所有技能目录都已跟踪）")
     block_lines.append(END)
@@ -530,7 +544,7 @@ def update_gitignore(cfg):
     if post.strip():
         new += "\n" + post
     gi.write_text(new, encoding="utf-8")
-    return untracked
+    return {"blocked": blocked, "new": newcomers}
 
 
 # ---------------------------------------------------------------- adopt
@@ -677,10 +691,13 @@ def cmd_adopt(cfg, args):
 
     print(f"\n完成。原始副本已移入 {backup}（可随时取回）")
     if cfg.get("gitignore_untracked_block"):
-        un = update_gitignore(cfg)
-        if un is not None:
-            print(f".gitignore 已更新：{len(un)} 个第三方技能目录被排除在版本控制外"
-                  f"（{', '.join(un[:5])}{'...' if len(un) > 5 else ''}）")
+        res = update_gitignore(cfg)
+        if res and res["new"]:
+            names = res["new"]
+            print(f"[提示] {len(names)} 个未跟踪技能未被自动排除"
+                  f"（可能是你自己新建的）：{', '.join(names[:6])}"
+                  f"{' …' if len(names) > 6 else ''}")
+            print("       确认是第三方再跑：skillsync.py gitignore --add <名字>")
     print("下一步：跑 link --apply 把主库技能分发到其余 agent。")
     return 0
 
@@ -784,13 +801,18 @@ def cmd_add(cfg, args):
 
 
 def cmd_gitignore(cfg, args):
-    un = update_gitignore(cfg)
-    if un is None:
+    res = update_gitignore(cfg, add=getattr(args, "add", None))
+    if res is None:
         print("主库不是 git 仓库或 git 不可用，跳过")
         return 1
-    print(f"已写入 .gitignore 标记区块，排除 {len(un)} 个未跟踪目录：")
-    for n in un:
+    print(f"已写入 .gitignore 标记区块，排除 {len(res['blocked'])} 个未跟踪目录：")
+    for n in res["blocked"]:
         print("  " + n)
+    if res["new"]:
+        print(f"\n未排除（新出现，未自动加）：{len(res['new'])} 个")
+        for n in res["new"]:
+            print("  " + n)
+        print("\n确认是第三方：skillsync.py gitignore --add <名字> ...")
     return 0
 
 
@@ -902,7 +924,9 @@ def main():
     p.add_argument("--name")
     p.add_argument("--apply", action="store_true")
 
-    p = sub.add_parser("gitignore", help="刷新 .gitignore 的第三方技能区块")
+    p = sub.add_parser("gitignore", help="刷新 .gitignore 的第三方技能区块（只减不增）")
+    p.add_argument("--add", nargs="+", metavar="SKILL",
+                   help="显式把技能加入排除名单")
 
     p = sub.add_parser("rules", help="把主库 AGENTS.md 的规则分发到各 agent 全局文件")
     p.add_argument("--apply", action="store_true")
