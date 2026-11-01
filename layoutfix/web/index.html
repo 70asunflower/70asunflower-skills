@@ -164,6 +164,14 @@
     border:1px solid var(--line2); border-radius:3px; padding:3px 5px;
   }
   #props textarea:focus{outline:1px solid var(--sel)}
+  /* 图内就地编辑浮层：盖在文字原位上，字号/颜色/对齐都跟着原图走 */
+  #ff-editor{
+    position:absolute; z-index:6; margin:0; resize:none; overflow:hidden;
+    white-space:pre; background:var(--field); color:var(--ink);
+    border:1px solid var(--sel); border-radius:2px; padding:2px 4px;
+    line-height:1.35; box-shadow:0 2px 10px rgba(0,0,0,.3);
+  }
+  #ff-editor:focus{outline:none}
   #props .btnrow{display:flex; align-items:center; gap:3px;
                  padding:0 10px 8px; flex-wrap:wrap}
   #props .btnrow .lbl{color:var(--mute); margin-right:2px}
@@ -583,6 +591,131 @@ function select(el){
 /* ---------- 属性面板 ---------- */
 function isText(el){ return el.tagName.toLowerCase() === 'text'; }
 
+function textLines(el){
+  const spans = el.querySelectorAll('tspan');
+  return spans.length ? Array.from(spans).map(x=>x.textContent)
+                      : [el.textContent || ''];
+}
+
+/* ---------- Word 式折行：CJK 按字、拉丁按词，超长词硬切 ----------
+   测宽直接在原图里量（往 <text> 挂临时 tspan 再取 getComputedTextLength），
+   字体、字号、字距全都跟原图一致，不用在 canvas 里伪造字体环境。 */
+const CJK_RE = /[\u2E80-\u2EFF\u3000-\u303F\u3040-\u30FF\u3130-\u318F\u31F0-\u31FF\u3400-\u4DBF\u4E00-\u9FFF\uAC00-\uD7AF\uF900-\uFAFF\uFF01-\uFF60]/;
+
+function measureLen(el, str){
+  const t = document.createElementNS(NS, 'tspan');
+  t.textContent = str;
+  el.appendChild(t);
+  const len = t.getComputedTextLength();
+  el.removeChild(t);
+  return len;
+}
+
+function wrapLines(el, text, maxW){
+  const tokens = [];
+  let run = '';
+  for(const ch of String(text)){
+    if(/\s/.test(ch)){
+      if(run){ tokens.push({t: run}); run = ''; }
+      tokens.push({sp: true});
+    }else if(CJK_RE.test(ch)){
+      if(run){ tokens.push({t: run}); run = ''; }
+      tokens.push({t: ch});
+    }else{
+      run += ch;
+    }
+  }
+  if(run) tokens.push({t: run});
+  const lines = [];
+  let cur = '';
+  const flush = ()=>{ const s = cur.replace(/\s+$/, ''); if(s) lines.push(s); cur = ''; };
+  for(const tk of tokens){
+    if(tk.sp){ if(cur) cur += ' '; continue; }
+    if(cur && measureLen(el, cur + tk.t) > maxW) flush();
+    if(cur === '' && measureLen(el, tk.t) > maxW){
+      // 单词比整行还宽（长 URL）：按字符硬切，否则永远放不进任何一行
+      let piece = '';
+      for(const ch of tk.t){
+        if(piece && measureLen(el, piece + ch) > maxW){ lines.push(piece); piece = ch; }
+        else piece += ch;
+      }
+      cur = piece;
+      continue;
+    }
+    cur += tk.t;
+  }
+  flush();
+  return lines.length ? lines : [''];
+}
+
+/* 按 lines 重建 tspan（拖宽度时的实时预览）。dy 节奏沿用图里已有的，
+   服务端 set_text 重建时会读到同样的值——预览和落盘一条心。 */
+function applyTspans(el, lines, fs){
+  const old = el.querySelectorAll('tspan');
+  const dy = old.length >= 2 ? (old[1].getAttribute('dy') || (fs * 1.35))
+                             : (fs * 1.35);
+  const x = el.getAttribute('x');
+  while(el.firstChild) el.removeChild(el.firstChild);
+  lines.forEach(function(ln, i){
+    const t = document.createElementNS(NS, 'tspan');
+    if(x !== null) t.setAttribute('x', x);
+    t.setAttribute('dy', i === 0 ? '0' : dy);
+    t.textContent = ln;
+    el.appendChild(t);
+  });
+}
+
+/* ---------- 图内就地编辑：浮层输入框盖在文字原位上 ---------- */
+let textEdit = null;   // {el, ta, orig}
+function openTextEditor(el){
+  closeTextEditor(false);
+  const s = svgEl();
+  const cs = getComputedStyle(el);
+  const stR = stage.getBoundingClientRect();
+  const er = el.getBoundingClientRect();
+  const ta = document.createElement('textarea');
+  ta.id = 'ff-editor';
+  ta.spellcheck = false;
+  ta.value = textLines(el).join('\n');
+  const scale = el.getScreenCTM().a / s.getScreenCTM().a;
+  ta.style.left = (er.left - stR.left + stage.scrollLeft) + 'px';
+  ta.style.top = (er.top - stR.top + stage.scrollTop) + 'px';
+  ta.style.fontFamily = cs.fontFamily;
+  ta.style.fontSize = (parseFloat(cs.fontSize) * scale) + 'px';
+  ta.style.fontWeight = cs.fontWeight;
+  ta.style.color = (!cs.fill || cs.fill === 'none' || cs.fill.indexOf('url') === 0)
+    ? 'var(--ink)' : cs.fill;
+  const anchor = cs.textAnchor;
+  ta.style.textAlign = anchor === 'middle' ? 'center' : anchor === 'end' ? 'right' : 'left';
+  ta.style.width = Math.max(er.width, 80) + 'px';
+  stage.appendChild(ta);
+  const grow = function(){ this.style.height = 'auto'; this.style.height = this.scrollHeight + 'px'; };
+  ta.addEventListener('input', grow);
+  ta.addEventListener('blur', function(){ commitTextEdit(); });
+  ta.addEventListener('keydown', function(e){
+    if(e.key === 'Escape'){ e.preventDefault(); closeTextEditor(false); }
+    else if(e.key === 'Enter' && e.ctrlKey){ e.preventDefault(); closeTextEditor(true); }
+    e.stopPropagation();          // 打字时别触发 G/S/T 这些单键
+  });
+  textEdit = {el: el, ta: ta, orig: ta.value};
+  grow.call(ta);
+  ta.focus(); ta.select();
+}
+function commitTextEdit(){
+  if(!textEdit) return;
+  const t = textEdit; textEdit = null;
+  const val = t.ta.value;
+  t.ta.remove();
+  if(val !== t.orig) commitText(t.el.dataset.ffid, val);
+}
+function closeTextEditor(commit){
+  if(!textEdit) return;
+  const t = textEdit; textEdit = null;
+  const val = t.ta.value;
+  t.ta.remove();
+  if(commit && val !== t.orig) commitText(t.el.dataset.ffid, val);
+}
+
 function visualBox(el){
   const s = svgEl();
   const cr = el.getBoundingClientRect();
@@ -648,7 +781,7 @@ function drawHandle(el){
   r.setAttribute('stroke', '#1a63c8');
   r.setAttribute('stroke-width', size / 9);
   r.setAttribute('data-ffhandle', '1');
-  r.style.cursor = 'nwse-resize';
+  r.style.cursor = isText(el) ? 'ew-resize' : 'nwse-resize';
   r.style.pointerEvents = 'all';
   g.appendChild(r);
 }
@@ -685,11 +818,7 @@ function showProps(el){
     : '该元素没有宽高属性，只能调图层';
   document.getElementById('row-text').style.display = t ? '' : 'none';
   if(t){
-    // 多行文字存在 tspan 里，编辑框按 \n 拼回；单行直接是 textContent
-    const spans = el.querySelectorAll('tspan');
-    document.getElementById('p-text').value = spans.length
-      ? Array.from(spans).map(x=>x.textContent).join('\n')
-      : (el.textContent || '');
+    document.getElementById('p-text').value = textLines(el).join('\n');
   }
   // 背景板是锁定的，不该参与图层调整
   document.getElementById('row-order').style.display =
@@ -847,6 +976,13 @@ canvas.addEventListener('mousedown', function(e){
   resizing = {el: sel, p0: toUser(e), w0: b.width, h0: b.height,
               fs0: parseFloat(getComputedStyle(sel).fontSize) || 12,
               text: isText(sel), moved: false, pending: null};
+  if(resizing.text){
+    // 文字手柄 = Word 式折行宽度：起点取现有宽度加 5% 余量，一按手柄不折行
+    resizing.scale = sel.getScreenCTM().a / svgEl().getScreenCTM().a;
+    resizing.src0 = textLines(sel).join('\n');
+    resizing.w0 = Math.max(b.width, 10) * 1.02;
+    resizing.minW = Math.max(20, measureLen(sel, '测试') || resizing.fs0 * 2);
+  }
 });
 
 window.addEventListener('mousemove', function(e){
@@ -855,10 +991,12 @@ window.addEventListener('mousemove', function(e){
   const dx = p.x - resizing.p0.x, dy = p.y - resizing.p0.y;
   resizing.moved = true;
   if(resizing.text){
-    // 文字：拖右加大字号，按原宽度等比换算，避免一点点拖就跳很大
-    const fs = Math.max(1, resizing.fs0 * (1 + dx / Math.max(resizing.w0, 1)));
-    resizing.el.setAttribute('font-size', fs.toFixed(1));
-    resizing.pending = {'font-size': +fs.toFixed(1)};
+    // Word 式：横向拖 = 调折行宽度，文字实时重排（按宽度把原文字重新分行）。
+    // 字号回面板和 [ ] 键——一个手柄干两件事会互相打架，拖字号还是拖宽度说不清。
+    resizing.moved = true;
+    const wLocal = Math.max(resizing.minW, resizing.w0 + dx / resizing.scale);
+    resizing.lines = wrapLines(resizing.el, resizing.src0, wLocal);
+    applyTspans(resizing.el, resizing.lines, resizing.fs0);
   }else{
     const w = Math.max(2, resizing.w0 + dx);
     const h = Math.max(2, resizing.h0 + dy);
@@ -932,6 +1070,17 @@ window.addEventListener('mouseup', async ()=>{
   if(resizing){
     const r = resizing;
     resizing = null;
+    if(r.text){
+      // 折行以文字内容落盘（走 set_text）：行距节奏服务端会按当前 tspan 沿用
+      if(r.moved && r.lines){
+        const text = r.lines.join('\n');
+        if(text !== r.src0) commitText(r.el.dataset.ffid, text);
+        else await refresh();
+      }else{
+        await refresh();
+      }
+      return;
+    }
     if(r.moved && r.pending) await commitSet(r.el.dataset.ffid, r.pending);
     return;
   }
@@ -1069,6 +1218,7 @@ function toggleSnap(){
 }
 
 async function refresh(){
+  closeTextEditor(false);   // 底图要整体重载，开着的就地编辑先收（未提交的改动丢弃）
   const both = await Promise.all([
     fetch('/fig.svg').then(r=>r.text()),
     fetch('/state').then(r=>r.json())
@@ -1279,13 +1429,12 @@ document.getElementById('p-text').addEventListener('keydown', function(e){
   e.stopPropagation();          // 别让 G/S/T 这些单键快捷键在打字时触发
 });
 
-/* 双击文字 = 直达内容编辑。比在面板里找输入框快一步。 */
+/* 双击文字 = 图内就地编辑（Word 式）。面板里的内容框仍在，适合改多行大段。 */
 canvas.addEventListener('dblclick', function(e){
   const el = e.target.closest && e.target.closest('[data-ffid]');
   if(el && isText(el) && !el.hasAttribute('data-fflock')){
     select(el);
-    const ta = document.getElementById('p-text');
-    ta.focus(); ta.select();
+    openTextEditor(el);
   }
 });
 

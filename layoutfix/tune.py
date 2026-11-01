@@ -62,26 +62,29 @@ fr.onload = async () => {
   const h = D.querySelector('#ff-handle rect');
   say('拖角手柄 ' + (h ? '已渲染 bbox=' + Math.round(h.getAttribute('width')) : '缺失'), !!h);
 
-  // 3) 拖角改字号：模拟向右拖 40px
-  const fsBefore = parseFloat(W.getComputedStyle(el).fontSize);
+  // 3) 拖角 = Word 式折行宽度：向左拖窄 → 实时重排成多行、内容不变；
+  //    撤销后字节级还原（行距节奏、空格一个不动）
+  const raw0 = await fig();
   if(h){
     const hr = h.getBoundingClientRect();
+    const er = el.getBoundingClientRect();
     const hx = hr.left + hr.width/2, hy = hr.top + hr.height/2;
     h.dispatchEvent(mk('mousedown', hx, hy));
     await sleep(50);
-    for(let i=1;i<=5;i++){ W.dispatchEvent(mk('mousemove', hx + i*8, hy)); await sleep(30); }
-    W.dispatchEvent(mk('mouseup', hx + 40, hy));
+    const tx = hx - er.width * 0.45;      // 收窄近一半，单行长句必然折行
+    for(let i=1;i<=5;i++){ W.dispatchEvent(mk('mousemove', hx + (tx - hx) * i / 5, hy)); await sleep(30); }
+    W.dispatchEvent(mk('mouseup', tx, hy));
     await sleep(900);
-    const after = await state();
-    // 关键：断言「算出来的字号变了」，而不是「文件里有这个属性」。
-    // 只查文件会让 CSS 类把它压回去的情况漏过去——这正是曾经漏掉的 bug。
     const el2 = D.querySelector('[data-ffid="text:4"]');
-    const fsAfter = el2 ? parseFloat(W.getComputedStyle(el2).fontSize) : 0;
-    say('拖角改字号 → 计算字号 ' + fsBefore.toFixed(1) + ' → ' + fsAfter.toFixed(1) +
-        'px  清单 ' + after.ops.length + ' 条',
-        fsAfter !== fsBefore && after.ops.length === before.ops.length + 1);
+    const spans = el2 ? el2.querySelectorAll('tspan') : [];
+    const joined = spans.length ? Array.from(spans).map(t=>t.textContent).join('') : '';
+    say('拖角收窄 → 折行 ' + spans.length + ' 行，内容保持 ' +
+        (joined.indexOf('DOUT/DIN') >= 0),
+        spans.length >= 2 && joined.indexOf('DOUT/DIN') >= 0);
     await fetch('/undo', {method:'POST'});
     await sleep(300);
+    const raw2 = await fig();
+    say('撤销折行 → 字节级还原 ' + (raw2 === raw0 ? '一致' : '不一致'), raw2 === raw0);
   }
 
   // 4) 面板输入改宽度（矩形）
