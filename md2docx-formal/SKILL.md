@@ -1,6 +1,6 @@
 ---
 name: md2docx-formal
-description: "Convert Markdown into a formally typeset Chinese engineering Word (.docx) document using python-docx. This skill should be used when the user wants to turn a Markdown paper/report/thesis into a submission- or archive-quality Word file with structured heading hierarchy (H1-H5) mapped by 篇/章/节 semantics, A4 page layout, 宋体/黑体 fonts, 1.5x line spacing, auto table of contents field, header/footer with page numbers, and reference citations [n] rendered as superscripts per GB/T 7714 sequential-coding style while keeping the 参考文献 list entries in normal size. Also use it to re-verify, re-audit, or run a block-level source-to-docx consistency/fidelity check (一致性审查) on an existing docx after the source Markdown changes."
+description: "把 Markdown 转成规范排版的工程类中文 Word（.docx），用于投稿或归档。篇/章/节语义映射 H1–H5、A4 版面、宋体/黑体、1.5 倍行距、自动目录域、页眉页脚页码、GB/T 7714 顺序编码制上标引用（参考文献条目保持正常字号）。也可对已有 docx 做块级源文一致性审查。Triggers: md转word, markdown转docx, 转成Word, 排版Word, 论文转docx, 报告转Word, GB/T 7714, 一致性审查."
 agent_created: true
 ---
 

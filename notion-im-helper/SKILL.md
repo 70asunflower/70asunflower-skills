@@ -1,6 +1,6 @@
 ---
 name: notion-im-helper
-description: Sync IM messages to Notion via Notion API. Supports 7 content types, 4 formats, 2 metadata types, multi-page sync. Append-only.
+description: "Sync IM messages to Notion via Notion API. Supports 7 content types, 4 formats, 2 metadata types, multi-page sync. Append-only. Triggers: 发到 Notion, 记到 Notion, 闪念速记, 待办清单, 同步消息到 Notion."
 ---
 
 # Notion IM Helper

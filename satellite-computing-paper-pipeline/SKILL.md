@@ -1,6 +1,6 @@
 ---
 name: satellite-computing-paper-pipeline
-description: "End-to-end full-lifecycle paper writing, empirical attribution, LaTeX engineering, and submission pipeline for satellite edge computing and radiation reliability research. Covers in-situ accelerator telemetry parsing, three-tier orthogonal fault tree elimination, out-of-band cold-power-cycling self-healing design (decay threshold >= 10s), academic hedging, strict monotonic citation verification ([1]..[N]), 6-page IEEE double-column budget optimization, vector/PNG asset rendering, and dual-mirror Overleaf packaging. Triggers: satellite paper pipeline, 卫星计算论文, 空间辐射论文, 论文流程skills, satellite computing pipeline, paper pipeline pack."
+description: "卫星边缘计算与空间辐射可靠性方向的论文全流程：在轨加速器遥测解析、三层正交故障树排除、带外冷断电自愈设计验证（衰减阈值 ≥10s）、学术对冲措辞、严格单调引用校验、IEEE 双栏 6 页版面预算、矢量/PNG 素材渲染、双镜像 Overleaf 打包。Triggers: 卫星计算论文, 空间辐射论文, 论文流程skills, satellite computing pipeline, paper pipeline pack, 在轨遥测, 故障树排除."
 metadata:
   version: "1.0.0"
   last_updated: "2026-09-27"

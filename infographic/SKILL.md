@@ -152,7 +152,7 @@ python screenshot.py <path-to-html> [--output <output-png>] [--viewport 900x1200
 
 1. 先输出 1 句话分析：「分析：高/中/低信息密度 — 采用 X 栏布局」
 2. 输出完整 HTML（含 CSS）
-3. 用 draw.io MCP 或 screenshot.py 导出 PNG
+3. 用 draw.io MCP 或 `scripts/screenshot.py`（Playwright，HTML → PNG）导出
 
 ## HTML 文件命名
 

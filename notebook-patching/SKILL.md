@@ -1,6 +1,6 @@
 ---
 name: notebook-patching
-description: Jupyter Notebook (.ipynb) 与 IDE 打开状态下的结构化文件快速安全修改工作流。规避内置编辑工具对 ipynb 的限制、避开 Windows PowerShell/Cmd 内联转义与 GBK 编码陷阱、解决 VS Code Notebook 内存缓冲区与 Auto-Save 覆盖冲突。包含一击必中的 Python 补丁脚本标准范式与交付重载指引。
+description: "Jupyter Notebook (.ipynb) 与 IDE 打开状态下的结构化文件快速安全修改工作流。规避内置编辑工具对 ipynb 的限制、避开 Windows PowerShell/Cmd 内联转义与 GBK 编码陷阱、解决 VS Code Notebook 内存缓冲区与 Auto-Save 覆盖冲突。包含一击必中的 Python 补丁脚本标准范式与交付重载指引。 Triggers: 改 ipynb, 修改 notebook, Jupyter 单元格, Notebook 被覆盖, 编辑 notebook 报错."
 ---
 
 # notebook-patching：Jupyter Notebook 与受限文件安全修改指南

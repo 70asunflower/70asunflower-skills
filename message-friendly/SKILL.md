@@ -1,6 +1,6 @@
 ---
 name: message-friendly
-description: Optimizes Markdown-formatted messages for IM platforms (WeChat, DingTalk, etc.) by removing unsupported markup and using clean text layouts.
+description: "Optimizes Markdown-formatted messages for IM platforms (WeChat, DingTalk, etc.) by removing unsupported markup and using clean text layouts. Triggers: 微信排版, 发微信, IM 格式, 聊天消息, 去掉 Markdown, 消息太乱, 钉钉排版."
 ---
 
 # Role: message-friendly (IM Formatter)

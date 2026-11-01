@@ -4,6 +4,7 @@
 
 判定原则：**只拦新增问题，不为历史欠账买单**。
 - check_consistency.py 失败 → 拒绝提交（README 与目录必须双向一致）
+- lint_skills.py 有 error → 拒绝提交（结构/frontmatter/断链等硬规范）
 - doctor 报出**新的**链式 junction → 拒绝提交（旧的记在 baseline 里，已豁免）
 - 真实副本数上涨 → 只警告（副本归集需要人工判断，不该堵住提交）
 
@@ -87,6 +88,13 @@ def main():
         failures.append(
             "check_consistency.py 未通过（README 与技能目录不一致）\n"
             + (consistency.stdout or "")[-800:]
+        )
+
+    lint = run(["scripts/lint_skills.py"])
+    if lint.returncode != 0:
+        failures.append(
+            "lint_skills.py 有 error（技能规范未过）\n"
+            + (lint.stdout or "")[-800:]
         )
 
     current = chained_items()

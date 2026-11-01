@@ -1,6 +1,6 @@
 ---
 name: siyuan-kernel-ops
-description: Safely search, read, create, edit, move, and batch-process a local SiYuan knowledge base from an AI agent runtime through SiYuan's Kernel HTTP API. Use when the user mentions SiYuan/思源笔记, notebooks, documents, blocks, backlinks, attributes, SQL/full-text search, daily notes, or asks the agent to organize or write back knowledge. Prefer block-level, idempotent edits; protect block IDs, references, assets, and user data.
+description: "Safely search, read, create, edit, move, and batch-process a local SiYuan knowledge base from an AI agent runtime through SiYuan's Kernel HTTP API. Use when the user mentions SiYuan/思源笔记, notebooks, documents, blocks, backlinks, attributes, SQL/full-text search, daily notes, or asks the agent to organize or write back knowledge. Prefer block-level, idempotent edits; protect block IDs, references, assets, and user data. Triggers: 思源 API, 读笔记库, 批量改笔记, 思源端口, 思源内核, 上传附件到思源."
 compatibility: Any AI agent runtime (WorkBuddy, ZCode, Claude Code, …) on Windows with Python 3 and local access to a running SiYuan desktop/kernel. The default workspace config is D:\MyData\Warehouse\siyuan-backup\conf\conf.json; SIYUAN_URL, SIYUAN_TOKEN, and SIYUAN_CONF may override it.
 metadata:
   version: "3.3.0"

@@ -1,6 +1,6 @@
 ---
 name: ieee-engineering-paper-writer
-description: "Assists in drafting, structuring, reviewing, and refining IEEE and engineering academic papers (Transactions, flagship conferences, journals) across experimental systems, hardware failure analysis, radiation effects, embedded computing, and aerospace platforms. 6 executable modes (audit/rewrite/causal-chain/forensic/cite-lint/budget-control). Features 10 Universal Iron Rules, tri-fold orthogonal failure fingerprints (OS/telemetry/power), Drop-in Replacement generation for subagent handoff, and strict IEEE monotonic citation checking. Triggers: ieee paper, engineering paper, audit draft, review draft, hardware failure analysis, radiation effects, single event effects, causal chain, forensic attribution, 审查论文初稿, 论文修改意见, 润色工程论文, 硬件失效分析, 辐射效应, 排除法归因, 物理因果链, drop-in replacement, 改论文, 审稿."
+description: "IEEE 与工程类论文的起草、结构、审阅与精修（Transactions / 旗舰会议 / 期刊），覆盖实验系统、硬件失效分析、辐射效应、嵌入式计算、航空航天平台。六个可执行模式：audit / rewrite / causal-chain / forensic / cite-lint / budget-control，附十项工程写作铁律、OS-遥测-电源三维正交失效指纹、drop-in 替换生成、IEEE 单调引用检查。Triggers: ieee paper, engineering paper, 审查论文初稿, 论文修改意见, 润色工程论文, 硬件失效分析, 辐射效应, 排除法归因, 物理因果链, drop-in replacement, 改论文, 审稿."
 metadata:
   version: "2.1.0"
   last_updated: "2026-09-25"

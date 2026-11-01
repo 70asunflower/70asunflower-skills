@@ -1,6 +1,6 @@
 ---
 name: md-to-70asunflower-latex
-description: 将 Markdown 技术博客或长篇技术手册转换为 70asunflower 风格 LaTeX 文档，适配 Overleaf XeLaTeX 编译。支持短博客、长文档、技术表格、代码块、公式、核心要点、面试常问与静态检查。
+description: "将 Markdown 技术博客或长篇技术手册转换为 70asunflower 风格 LaTeX 文档，适配 Overleaf XeLaTeX 编译。支持短博客、长文档、技术表格、代码块、公式、核心要点、面试常问与静态检查。 Triggers: md转latex, markdown转latex, 写博客, 转成LaTeX, Overleaf, 技术手册排版, 70asunflower."
 ---
 
 # Markdown 转 70asunflower LaTeX 博客模板 v2

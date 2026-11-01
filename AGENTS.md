@@ -27,6 +27,25 @@
 - **瘦身顺序**：删叙事与变更日志 → 跨技能去重 → 最后才把代码抽到 `scripts/`。反过来先动代码会破坏可用性。
 - **长技能（>300 行）**优先把细节拆到 `scripts/` 或子文件，正文只留判断规则、症状索引与指针。
 
+## 技能规范
+
+规范的**唯一可执行定义**是 `scripts/lint_skills.py`，提交闸门会跑它，有 error 直接拒绝提交。
+本节只解释为什么，不重复细则——两边写两遍必然漂移。
+
+三条硬要求（error）：
+
+- **frontmatter**：`---` 开头、有 `name` 且与目录名一致、有 `description`
+- **description 80–600 字**：它进的是每次对话的技能清单，写长了会被截断还费 token。
+  只回答「做什么 + 何时用」，把「里面有什么」留给正文
+- **引用必须存在**：正文里写 `scripts/x.py`、`references/y.md` 就必须真有这个文件；
+  有 `scripts/` 目录就必须在正文里说怎么用
+
+三条建议（warning）：
+
+- SKILL.md 超 300 行 → 细节拆到 `references/` 或 `scripts/`
+- 目录里不留 `__pycache__` / `.DS_Store`
+- description 或正文里要有一句「何时用」（`Triggers:` 或「何时使用」段），否则路由不准
+
 ## 工具
 
 在仓库目录下运行，配置在 `~/.agents/skillsync.json`：
@@ -38,6 +57,10 @@ python scripts/skillsync.py scan          # 多副本漂移报告
 python scripts/skillsync.py link --apply  # 把仓库技能分发到各 agent
 python scripts/skillsync.py adopt --only <skill> --apply   # 从某 agent 吸收技能进仓库
 python scripts/skillsync.py rules --apply # 把本规则块分发到各 agent 全局文件
+
+python scripts/lint_skills.py             # 技能规范检查（只查自建技能，--all 连第三方）
+python scripts/lint_skills.py --strict    # warning 也算失败
+python scripts/check_consistency.py       # README 与目录双向一致
 ```
 
 `adopt`、`link`、`rules` 默认 dry-run，不加 `--apply` 不会动任何文件。收编或分发时会自动隔离「正文冲突」的技能（某 agent 的副本 SKILL.md 正文与仓库不同），这类既不分发也不回链，须人工定夺版本。

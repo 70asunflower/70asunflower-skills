@@ -1,6 +1,6 @@
 ---
 name: paper-figures
-description: "学术论文图表、视觉摘要与学术海报全流程生产中枢。内置顶刊版面预设（Nature/Science/Cell/IEEE/Elsevier）、色盲无障碍（CVD）与灰度仿真质检、多子图马赛克拼版（subplot_mosaic）、Graphical Abstract 双轨生成（1:1方版/2.5:1横版）、0度水平文字铁律、OpenXML DrawingML 原生矢量控制、中文标点避头尾禁则与数据诚信契约。支持五大管线路由：投稿级矢量数据图与3D爆炸图、PPT示意图转矢量、Origin直通可编辑OPJU、Graphical Abstract视觉摘要双轨、学术海报易拉宝双轨。Triggers: 画论文图, 画个图, 绘制图表, 论文插图, 科研画图, 数据画图, figure for paper, IEEE figure, plot paper figure, Origin 画图, OriginPro 可编辑图, OPJU, 导师要 Origin 格式, 图命名, 图放哪, 转成矢量图, ppt转pdf, 坐标画布, 元素移动, 标签位置, 图上定位, 爆炸图, 层级图, 3D 结构图, exploded view, 子图题注, subcaption, 学术海报, 海报设计, 易拉宝, 会议海报, 论文海报, academic poster, poster pptx, 导出pptx, 可编辑海报, 易拉宝排版, 海报绘图, poster design, rollup banner, 展板设计, 学术展板, 海报转pptx, 海报导出可编辑, matplotlib转pptx, 双轨一致性, Nature绘图, Science绘图, 顶刊插图, 视觉摘要, graphical abstract, 色盲检测, 色盲友好, check colorblind, 多子图拼版, multipanel, 子图拼图, 柱状图散点, 统计图绘图. 版面体检与微调交给 layoutfix 技能。"
+description: "学术论文图表与视觉摘要生产中枢：顶刊版面预设（Nature/Science/Cell/IEEE/Elsevier）、色盲与灰度质检、多子图马赛克拼版、Graphical Abstract 双轨、0 度水平文字铁律、OpenXML 原生矢量、中文标点避头尾。按用途路由五条管线：投稿级矢量数据图 / PPT 示意图转矢量 / Origin 直通 OPJU / 视觉摘要 / 学术海报易拉宝。Triggers: 画论文图, 绘制图表, 论文插图, 科研画图, figure for paper, IEEE figure, Origin 画图, OPJU, 导师要 Origin 格式, 转成矢量图, 子图拼版, 视觉摘要, graphical abstract, 色盲检测, 顶刊插图, 学术海报, 易拉宝, 展板设计, poster pptx, 导出pptx. 版面体检与微调交给 layoutfix 技能。"
 metadata:
   version: "1.6.0"
   last_updated: "2026-10-18"
