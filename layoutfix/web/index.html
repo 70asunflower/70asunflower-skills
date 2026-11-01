@@ -249,7 +249,45 @@
   /* 拖动/缩放期间全局换成抓取光标：SVG 内部元素各有自己的 cursor，
      不加全局覆盖的话拖起来光标会在 move/箭头之间闪 */
   body.grabbing, body.grabbing *{cursor:grabbing !important}
-  #t-shutdown{color:var(--mute)}
+
+  /* ---- v9 扩展：对齐分布 / 标尺参考线 / minimap / 快照对比 / 历史 / 图层树 ---- */
+  #alignbar{
+    position:absolute; top:6px; left:50%; transform:translateX(-50%);
+    z-index:6; display:flex; gap:2px; padding:3px 5px;
+    background:var(--panel); border:1px solid var(--line2); border-radius:4px;
+    box-shadow:0 1px 6px rgba(0,0,0,.15);
+  }
+  #alignbar button{font-size:12px; padding:3px 7px}
+  #ruler-top{position:absolute; top:0; left:0; right:0; height:14px; z-index:4;
+    cursor:row-resize;
+    background:repeating-linear-gradient(90deg, var(--line2) 0 1px, transparent 1px 50px)}
+  #ruler-left{position:absolute; top:0; left:0; bottom:0; width:14px; z-index:4;
+    cursor:col-resize;
+    background:repeating-linear-gradient(180deg, var(--line2) 0 1px, transparent 1px 50px)}
+  .ff-guide{position:absolute; z-index:4;
+    background:color-mix(in srgb, var(--snap) 55%, transparent)}
+  .ff-guide.v{width:1px; top:0; bottom:0; cursor:col-resize}
+  .ff-guide.h{height:1px; left:0; right:0; cursor:row-resize}
+  #minimap{position:absolute; right:18px; bottom:14px; z-index:6;
+    border:1px solid var(--line2); background:var(--artboard);
+    box-shadow:0 1px 6px rgba(0,0,0,.2); line-height:0; cursor:crosshair;
+    overflow:hidden}
+  #minimap svg{display:block; width:100%; height:auto; pointer-events:none}
+  #mini-vp{position:absolute; border:1.5px solid var(--sel); pointer-events:none}
+  #snap-overlay{position:absolute; z-index:3; pointer-events:none; opacity:.5}
+  #snap-alpha{position:absolute; z-index:7; width:120px}
+  .histrow{display:flex; gap:6px; align-items:baseline; padding:4px 12px;
+    cursor:pointer; border-bottom:1px solid var(--rule); font-size:12px}
+  .histrow:hover{background:var(--hover2)}
+  .histrow .n{font-family:ui-monospace,monospace; color:var(--mute); flex:none; min-width:24px}
+  .lrow{display:flex; gap:5px; align-items:center; padding:2px 12px; font-size:12px}
+  .lrow:hover{background:var(--hover2)}
+  .lrow .eye{flex:none; width:20px; text-align:center; cursor:pointer;
+    color:var(--mute); border:0; background:transparent; font-size:11px}
+  .lrow .eye.off{opacity:.35}
+  .lrow .nm{cursor:pointer; flex:1; overflow:hidden; text-overflow:ellipsis;
+    white-space:nowrap; font-family:ui-monospace,monospace; color:var(--ink)}
+  .lrow .nm.sel{color:var(--sel); font-weight:600}  #t-shutdown{color:var(--mute)}
   #t-shutdown:hover{color:var(--err); border-color:var(--err)}
 </style>
 </head>
@@ -273,6 +311,9 @@
   <button id="undo" title="撤销 (Ctrl+Z)">撤销</button>
   <button id="redo" title="重做 (Ctrl+Shift+Z)">重做</button>
   <div class="vsep"></div>
+  <button id="t-shot" title="快照当前画面（用于前后叠加对比）">快照</button>
+  <button id="t-cmp" title="与快照叠加对比（再点关闭）" disabled>对比</button>
+  <div class="vsep"></div>
   <span class="seg">
     <button id="t-light" title="亮色主题 (T)">亮</button>
     <button id="t-dark" title="暗色主题 (T)">暗</button>
@@ -284,7 +325,24 @@
   <div id="title"></div>
 </div>
 
-<div id="stage"><div id="canvas">{{SVG}}</div></div>
+<div id="stage">
+  <div id="ruler-top" title="按住往下拖 = 垂直参考线"></div>
+  <div id="ruler-left" title="按住往右拖 = 水平参考线"></div>
+  <div id="canvas">{{SVG}}</div>
+  <img id="snap-overlay" alt="" style="display:none">
+  <input id="snap-alpha" type="range" min="0" max="100" value="50" style="display:none" title="快照透明度">
+  <div id="alignbar" style="display:none">
+    <button data-al="l" title="左对齐">⇤</button>
+    <button data-al="ch" title="水平居中">↔</button>
+    <button data-al="r" title="右对齐">⇥</button>
+    <button data-al="t" title="顶对齐">⇞</button>
+    <button data-al="cv" title="垂直居中">↕</button>
+    <button data-al="b" title="底对齐">⇟</button>
+    <button data-al="dh" title="横向等间距分布（≥3 个）">分布↔</button>
+    <button data-al="dv" title="纵向等间距分布（≥3 个）">分布↕</button>
+  </div>
+  <div id="minimap"><div id="mini-inner"></div><div id="mini-vp"></div></div>
+</div>
 
 <div id="statusbar">
   <span>元素 <b id="st-id">—</b></span>
@@ -301,6 +359,14 @@
       <span class="hintid" id="p-hint"></span></h2>
     <div class="rows" id="rows-text">
       <label>字号</label><input id="p-fs" class="num" type="number" step="0.5">
+    </div>
+    <div class="rows" id="rows-xy">
+      <label>X·Y</label><span style="display:flex;gap:4px">
+        <input id="p-x" class="num" type="number" step="1">
+        <input id="p-y" class="num" type="number" step="1"></span>
+    </div>
+    <div class="rows" id="rows-rot">
+      <label>旋转°</label><input id="p-rot" class="num" type="number" step="15">
     </div>
     <div class="rows" id="rows-content" style="grid-template-columns:1fr">
       <textarea id="p-text" rows="2" spellcheck="false"
@@ -339,11 +405,25 @@
       <span class="tw">▾</span></h2>
     <div id="ops">—</div>
   </div>
+  <div class="sec foldable" id="sec-hist">
+    <h2>历史 <span class="cnt" id="hcnt">0</span>
+      <button class="bdg" id="h-undo" title="回退一步">↶</button>
+      <button class="bdg" id="h-redo" title="重做一步">↷</button>
+      <span class="tw">▾</span></h2>
+    <div id="hist"></div>
+  </div>
+  <div class="sec foldable" id="sec-layers">
+    <h2>图层 <span class="cnt" id="lcnt">0</span>
+      <button class="bdg" id="l-group" title="组合选中元素 (Ctrl+G)">组</button>
+      <button class="bdg" id="l-ungroup" title="解组主元素 (Ctrl+U)">解</button>
+      <span class="tw">▾</span></h2>
+    <div id="layers"></div>
+  </div>
   <div class="hint">
-    拖动移动 · 靠近边缘/中心/网格自动吸附<br>
+    拖动移动 · 靠近边缘/中心/网格自动吸附 · 框选/Ctrl 加选/整体拖 · 连线端点搭在框上会跟随<br>
     <kbd>←↑↓→</kbd> 微调 · <kbd>Shift</kbd> 更细 · <kbd>[</kbd><kbd>]</kbd> 字号 · <kbd>Esc</kbd> 取消选中<br>
-    <kbd>G</kbd> 网格 · <kbd>S</kbd> 吸附 · <kbd>T</kbd> 主题 · <kbd>+</kbd>/<kbd>−</kbd>/<kbd>0</kbd> 缩放<br>
-    <kbd>Ctrl</kbd>+<kbd>Z</kbd> 撤销 · <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> 重做
+    <kbd>Ctrl</kbd>+<kbd>D</kbd> 再制 · <kbd>Ctrl</kbd>+<kbd>G</kbd> 组合 · <kbd>Ctrl</kbd>+<kbd>U</kbd> 解组 · <kbd>Alt</kbd> 查距离（开发中）<br>
+    <kbd>G</kbd> 网格 · <kbd>S</kbd> 吸附 · <kbd>T</kbd> 主题 · <kbd>+</kbd>/<kbd>−</kbd>/<kbd>0</kbd> 缩放 · 双击参考线删除
   </div>
 </aside>
 
@@ -1024,7 +1104,12 @@ canvas.addEventListener('mousedown', e=>{
   });
   dragging = {members, bases, p0, dx:0, dy:0,
               snaps: members.map(m=>snapAttrs(m)),
-              targets: collectTargets(members),
+              targets: (function(){
+                const tg = collectTargets(members);
+                const gt = guideTargets();       // 参考线也进吸附目标
+                tg.xs.push(...gt.xs); tg.ys.push(...gt.ys);
+                return tg;
+              })(),
               tol: pxToUser(SNAP_PX)};
 });
 
@@ -1070,6 +1155,7 @@ function updateMarquee(e){
 
 window.addEventListener('mousemove', e=>{
   if(marquee){ updateMarquee(e); return; }
+  if(e.altKey && !dragging && !resizing){ showDistances(); return; }
   if(!dragging) return;
   const p = toUser(e);
   const rawDx = p.x - dragging.p0.x, rawDy = p.y - dragging.p0.y;
@@ -1258,7 +1344,34 @@ window.addEventListener('mouseup', async ()=>{
   const moves = D_.members.map(function(m){
     return {id: m.dataset.ffid, dx: D_.dx, dy: D_.dy};
   });
-  if(moves.length === 1) await commit(moves[0].id, D_.dx, D_.dy);
+  // 连线跟随：端点搭在被移动成员边界上的 line，端点随成员拉伸（x/y 独立判断）
+  const tolG = 2;
+  svgEl().querySelectorAll('line').forEach(function(ln){
+    if(D_.members.some(function(m){ return m === ln || m.contains(ln) || ln.contains(m); })) return;
+    const attrs = {};
+    [['x1', 'y1'], ['x2', 'y2']].forEach(function(kp){
+      const px = parseFloat(ln.getAttribute(kp[0]));
+      const py = parseFloat(ln.getAttribute(kp[1]));
+      if(!isFinite(px) || !isFinite(py)) return;
+      let gx = 0, gy = 0;
+      D_.members.forEach(function(m, i){
+        const b = D_.bases[i];
+        const inY = py >= b.y - tolG && py <= b.y + b.height + tolG;
+        const inX = px >= b.x - tolG && px <= b.x + b.width + tolG;
+        if(inY && (Math.abs(px - b.x) <= tolG ||
+                   Math.abs(px - (b.x + b.width)) <= tolG)) gx = D_.dx;
+        if(inX && (Math.abs(py - b.y) <= tolG ||
+                   Math.abs(py - (b.y + b.height)) <= tolG)) gy = D_.dy;
+      });
+      if(gx || gy){
+        attrs[kp[0]] = +(px + gx).toFixed(2);
+        attrs[kp[1]] = +(py + gy).toFixed(2);
+      }
+    });
+    if(Object.keys(attrs).length) moves.push({id: ln.dataset.ffid, set: attrs});
+  });
+  if(moves.length === 1 && !('set' in moves[0]))
+    await commit(moves[0].id, D_.dx, D_.dy);
   else await commitMulti(moves, D_.dx, D_.dy);
 });
 
@@ -1756,6 +1869,452 @@ try{
   const qt = q.get('theme');
   if(qt === 'dark' || qt === 'light') applyTheme(qt, false);
 }catch(_){}
+
+/* ================= v9 扩展：对齐分布 / 精确变换 / 历史 / 图层树 / minimap / 快照 / 参考线 / 连线跟随 ================= */
+function applyMoves(items, msg){
+  return queue(async function(){
+    try{
+      const r = await fetch('/apply', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({moves: items})
+      });
+      const j = await r.json();
+      if(!j.ok) throw new Error(j.error || '保存失败');
+      await refresh();
+      if(msg) toast(msg);
+    }catch(err){
+      toast('失败 ' + err.message);
+      await refresh();
+    }
+  });
+}
+
+/* ---------- 对齐与分布（多选 ≥2） ---------- */
+const ALIGNBAR = document.getElementById('alignbar');
+ALIGNBAR.addEventListener('mousedown', e=>e.stopPropagation());
+ALIGNBAR.addEventListener('dblclick', e=>e.stopPropagation());
+ALIGNBAR.querySelectorAll('[data-al]').forEach(function(b){
+  b.onclick = function(){ doAlign(b.dataset.al); };
+});
+function doAlign(mode){
+  const boxes = selEls().map(function(el){
+    let b; try{ b = visualBox(el); }catch(_){ return null; }
+    return b ? {el: el, b: b} : null;
+  }).filter(Boolean);
+  if(boxes.length < 2) return;
+  const minx = Math.min(...boxes.map(o=>o.b.x));
+  const maxx = Math.max(...boxes.map(o=>o.b.x + o.b.width));
+  const miny = Math.min(...boxes.map(o=>o.b.y));
+  const maxy = Math.max(...boxes.map(o=>o.b.y + o.b.height));
+  const items = [];
+  const put = function(o, dx, dy){
+    if(Math.abs(dx) > 1e-6 || Math.abs(dy) > 1e-6)
+      items.push({id: o.el.dataset.ffid, dx: +dx.toFixed(3), dy: +dy.toFixed(3)});
+  };
+  let what = '';
+  if(mode === 'l' || mode === 'ch' || mode === 'r'){
+    boxes.forEach(function(o){
+      const t = mode === 'l' ? minx : mode === 'r' ? maxx - o.b.width
+              : (minx + maxx - o.b.width) / 2;
+      put(o, t - o.b.x, 0);
+    });
+    what = {l:'左对齐', ch:'水平居中', r:'右对齐'}[mode];
+  } else if(mode === 't' || mode === 'cv' || mode === 'b'){
+    boxes.forEach(function(o){
+      const t = mode === 't' ? miny : mode === 'b' ? maxy - o.b.height
+              : (miny + maxy - o.b.height) / 2;
+      put(o, 0, t - o.b.y);
+    });
+    what = {t:'顶对齐', cv:'垂直居中', b:'底对齐'}[mode];
+  } else {
+    const horiz = mode === 'dh';
+    const arr = boxes.slice().sort(function(a,b){
+      return horiz ? a.b.x - b.b.x : a.b.y - b.b.y; });
+    const span = (horiz ? maxx - minx : maxy - miny)
+      - (horiz ? arr[arr.length-1].b.width + arr[0].b.width
+               : arr[arr.length-1].b.height + arr[0].b.height);
+    const gap = span / (arr.length - 1);
+    let cursor = horiz ? minx : miny;
+    arr.forEach(function(o){
+      const size = horiz ? o.b.width : o.b.height;
+      const cur = horiz ? o.b.x : o.b.y;
+      if(horiz) put(o, cursor - cur, 0); else put(o, 0, cursor - cur);
+      cursor += size + gap;
+    });
+    what = horiz ? '横向分布' : '纵向分布';
+  }
+  if(items.length) applyMoves(items, what + '（' + items.length + ' 个）');
+}
+
+/* ---------- 精确变换：X/Y（bbox 口径，transform 元素也成立）与旋转 ---------- */
+function bindXY(id, axis){
+  document.getElementById(id).onchange = function(e){
+    if(!sel) return;
+    const v = parseFloat(e.target.value);
+    if(!isFinite(v)){ showProps(sel); return; }
+    let b; try{ b = visualBox(sel); }catch(_){ return; }
+    const items = [{id: sel.dataset.ffid,
+      dx: axis === 'x' ? +(v - b.x).toFixed(3) : 0,
+      dy: axis === 'y' ? +(v - b.y).toFixed(3) : 0}];
+    applyMoves(items);
+  };
+}
+bindXY('p-x', 'x');
+bindXY('p-y', 'y');
+document.getElementById('p-rot').onchange = function(e){
+  if(!sel) return;
+  const a = parseFloat(e.target.value);
+  if(!isFinite(a)){ showProps(sel); return; }
+  if(sel.getAttribute('transform') !== null){
+    toast('该元素已带 transform，旋转请在生成端处理');
+    showProps(sel); return;
+  }
+  let b; try{ b = visualBox(sel); }catch(_){ return; }
+  applyMoves([{id: sel.dataset.ffid, set: {transform:
+    'rotate(' + a + ' ' + (b.x + b.width/2).toFixed(2) + ' ' + (b.y + b.height/2).toFixed(2) + ')'}}],
+    '旋转 ' + a + '°');
+};
+
+/* ---------- 批量字号（多选全为文字时） ---------- */
+document.getElementById('p-fs').onchange = function(e){
+  const v = parseFloat(e.target.value);
+  if(!isFinite(v) || v <= 0){ showProps(sel); return; }
+  const texts = selEls().filter(isText);
+  if(!texts.length){ showProps(sel); return; }
+  if(texts.length === 1){ commitSet(texts[0].dataset.ffid, {'font-size': v}); return; }
+  applyMoves(texts.map(el=>({id: el.dataset.ffid, set: {'font-size': v}})),
+             texts.length + ' 个文字 字号=' + v);
+};
+
+/* ---------- 历史面板（点任意一行 = 回退到该步之前） ---------- */
+function renderHist(){
+  const box = document.getElementById('hist');
+  box.innerHTML = '';
+  const ops = state.ops.slice().reverse();          // 最新在最上
+  document.getElementById('hcnt').textContent = state.ops.length;
+  if(!ops.length){
+    box.innerHTML = '<div class="empty" style="padding:10px 12px;color:var(--mute)">还没有改动。</div>';
+    return;
+  }
+  const KIND = {move:'移动', set:'属性', set_text:'文字', order:'图层',
+                move_multi:'整体', add:'新增', group:'组合', ungroup:'解组'};
+  ops.forEach(function(o, i){
+    const row = document.createElement('div');
+    row.className = 'histrow';
+    row.innerHTML = '<span class="n">#' + (state.ops.length - i) + '</span>';
+    row.appendChild(Object.assign(document.createElement('span'),
+      {textContent: (KIND[o.op] || o.op) + ' ' + (o.label || o.id) +
+        (o.op === 'move_multi' ? ' ×' + o.n : '')}));
+    row.title = JSON.stringify(o);
+    row.onclick = async function(){
+      for(let k = 0; k <= i; k++){
+        await fetch('/undo', {method:'POST'}).catch(function(){});
+      }
+      await refresh();
+      toast('已回退 ' + (i + 1) + ' 步');
+    };
+    box.appendChild(row);
+  });
+}
+document.getElementById('h-undo').onclick = function(){ undo(); };
+document.getElementById('h-redo').onclick = function(){ redo(); };
+
+/* ---------- 图层树（显隐 / 点选 / 组合解组入口） ---------- */
+function renderLayers(){
+  const box = document.getElementById('layers');
+  box.innerHTML = '';
+  const tree = state.tree || [];
+  const cnt = function(t){ return t.reduce((s,n)=> s + 1 + countNodes(n.kids || []), 0); };
+  document.getElementById('lcnt').textContent = cnt(tree);
+  const build = function(nodes, depth, parent){
+    nodes.forEach(function(n){
+      const row = document.createElement('div');
+      row.className = 'lrow';
+      row.style.paddingLeft = (12 + depth * 14) + 'px';
+      const eye = document.createElement('button');
+      eye.className = 'eye' + (n.hidden ? ' off' : '');
+      eye.textContent = n.hidden ? '✕' : '👁';
+      eye.title = '显示 / 隐藏（visibility 落盘为属性改动，可撤销）';
+      eye.onclick = function(){
+        applyMoves([{id: n.eid,
+          set: {visibility: n.hidden ? 'visible' : 'hidden'}}]);
+      };
+      const nm = document.createElement('span');
+      nm.className = 'nm' + (selIds.includes(n.eid) ? ' sel' : '');
+      nm.textContent = n.eid + (n.kids && n.kids.length ? ' {' + n.kids.length + '}' : '');
+      nm.title = '点击选中；组合用 Ctrl+G，解组 Ctrl+U';
+      nm.onclick = function(){ setSelection([n.eid]); };
+      row.appendChild(eye); row.appendChild(nm);
+      parent.appendChild(row);
+      if(n.kids && n.kids.length) build(n.kids, depth + 1, parent);
+    });
+  };
+  build(tree, 0, box);
+}
+function countNodes(t){ return t.reduce(function(s, n){ return s + 1 + countNodes(n.kids || []); }, 0); }
+document.getElementById('l-group').onclick = function(){ groupSel(); };
+document.getElementById('l-ungroup').onclick = function(){ ungroupSel(); };
+function groupSel(){
+  if(selIds.length < 2){ toast('先选中至少两个元素（Ctrl+点选 或 框选）'); return; }
+  queue(async function(){
+    try{
+      const r = await fetch('/group', {method:'POST',
+        headers:{'Content-Type':'application/json'}, body: JSON.stringify({eids: selIds})});
+      const j = await r.json();
+      if(!j.ok) throw new Error(j.error || '组合失败');
+      await refresh();
+      if(j.new) setSelection([j.new]);
+      toast('已组合 → ' + j.new);
+    }catch(err){ toast('失败 ' + err.message); await refresh(); }
+  });
+}
+function ungroupSel(){
+  const el = primaryEl();
+  if(!el) return;
+  queue(async function(){
+    try{
+      const r = await fetch('/ungroup', {method:'POST',
+        headers:{'Content-Type':'application/json'}, body: JSON.stringify({id: el.dataset.ffid})});
+      const j = await r.json();
+      if(!j.ok) throw new Error(j.error || '解组失败');
+      await refresh();
+      toast('已解组 ' + el.dataset.ffid);
+    }catch(err){ toast('失败 ' + err.message); await refresh(); }
+  });
+}
+
+/* ---------- minimap ---------- */
+const mini = document.getElementById('minimap');
+const miniInner = document.getElementById('mini-inner');
+const miniVp = document.getElementById('mini-vp');
+function updateMinimap(){
+  const s = svgEl();
+  if(!s){ mini.style.display = 'none'; return; }
+  const vb = s.viewBox.baseVal;
+  const w = 170;
+  const h = Math.max(50, Math.min(160, w * (vb.height || 1) / (vb.width || 1)));
+  mini.style.width = w + 'px';
+  mini.style.height = h + 'px';
+  const key = (state.file || '') + '#' + state.ops.length;
+  if(miniInner.dataset.key !== key){
+    miniInner.dataset.key = key;
+    const clone = s.cloneNode(true);
+    ['#ff-grid', '#ff-guides', '#ff-handle'].forEach(function(sel2){
+      const g = clone.querySelector(sel2);
+      if(g) g.remove();
+    });
+    miniInner.innerHTML = clone.outerHTML;
+  }
+  // 视口矩形：stage 可视区折算到画布坐标的比例
+  const cw = canvas.clientWidth, ch = canvas.clientHeight;
+  const visL = Math.max(0, stage.scrollLeft - canvas.offsetLeft);
+  const visT = Math.max(0, stage.scrollTop - canvas.offsetTop);
+  const visW = Math.min(cw, stage.clientWidth) , visH = Math.min(ch, stage.clientHeight);
+  miniVp.style.left = (visL / Math.max(1, cw) * w) + 'px';
+  miniVp.style.top = (visT / Math.max(1, ch) * h) + 'px';
+  miniVp.style.width = (Math.min(visW, cw) / Math.max(1, cw) * w) + 'px';
+  miniVp.style.height = (Math.min(visH, ch) / Math.max(1, ch) * h) + 'px';
+}
+let miniDrag = false;
+mini.addEventListener('mousedown', function(e){
+  miniDrag = true;
+  miniSeek(e);
+  e.preventDefault();
+});
+window.addEventListener('mousemove', function(e){ if(miniDrag) miniSeek(e); });
+window.addEventListener('mouseup', function(){ miniDrag = false; });
+function miniSeek(e){
+  const r = mini.getBoundingClientRect();
+  const fx = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+  const fy = Math.max(0, Math.min(1, (e.clientY - r.top) / r.height));
+  stage.scrollLeft = fx * (stage.scrollWidth - stage.clientWidth);
+  stage.scrollTop = fy * (stage.scrollHeight - stage.clientHeight);
+}
+stage.addEventListener('scroll', function(){ updateMinimap(); });
+
+/* ---------- 快照对比 ---------- */
+let snapshot = null;
+let cmpOn = false;
+const snapOv = document.getElementById('snap-overlay');
+const snapAl = document.getElementById('snap-alpha');
+document.getElementById('t-shot').onclick = function(){
+  const s = svgEl();
+  if(!s) return;
+  const blob = new Blob([s.outerHTML], {type: 'image/svg+xml'});
+  const url = URL.createObjectURL(blob);
+  const img = new Image();
+  img.onload = function(){
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, canvas.clientWidth);
+    c.height = Math.max(1, canvas.clientHeight);
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, c.width, c.height);
+    ctx.drawImage(img, 0, 0, c.width, c.height);
+    snapshot = {url: c.toDataURL('image/png')};
+    document.getElementById('t-cmp').disabled = false;
+    toast('快照已存（对比按钮已解锁）');
+    URL.revokeObjectURL(url);
+  };
+  img.src = url;
+};
+document.getElementById('t-cmp').onclick = function(){
+  if(!snapshot){ toast('先点「快照」'); return; }
+  cmpOn = !cmpOn;
+  this.classList.toggle('on', cmpOn);
+  snapOv.style.display = cmpOn ? 'block' : 'none';
+  snapAl.style.display = cmpOn ? 'block' : 'none';
+  placeOverlay();
+};
+function placeOverlay(){
+  if(!snapshot) return;
+  const stR = stage.getBoundingClientRect();
+  const cR = canvas.getBoundingClientRect();
+  snapOv.src = snapshot.url;
+  snapOv.style.left = (cR.left - stR.left + stage.scrollLeft) + 'px';
+  snapOv.style.top = (cR.top - stR.top + stage.scrollTop) + 'px';
+  snapOv.style.width = cR.width + 'px';
+  snapOv.style.height = cR.height + 'px';
+  snapAl.style.left = (cR.left - stR.left + stage.scrollLeft + 8) + 'px';
+  snapAl.style.top = (cR.top - stR.top + stage.scrollTop + 8) + 'px';
+  snapOv.style.opacity = snapAl.value / 100;
+}
+snapAl.oninput = function(){ snapOv.style.opacity = this.value / 100; };
+
+/* ---------- 标尺 + 可拖参考线（会话内有效，不落盘） ---------- */
+let guides = [];            // {axis:'v'|'h', px}  px = stage 内容坐标
+let guideDrag = null;       // {axis, el, isNew}
+document.getElementById('ruler-top').addEventListener('mousedown', function(e){
+  e.preventDefault();
+  guideDrag = {axis: 'v', el: makeGuide('v'), isNew: true};
+  moveGuideTo(guideDrag.el, 'v', e);
+});
+document.getElementById('ruler-left').addEventListener('mousedown', function(e){
+  e.preventDefault();
+  guideDrag = {axis: 'h', el: makeGuide('h'), isNew: true};
+  moveGuideTo(guideDrag.el, 'h', e);
+});
+function makeGuide(axis){
+  const d = document.createElement('div');
+  d.className = 'ff-guide ' + axis;
+  stage.appendChild(d);
+  return d;
+}
+function guidePx(e, axis){
+  const stR = stage.getBoundingClientRect();
+  return axis === 'v' ? e.clientX - stR.left + stage.scrollLeft
+                      : e.clientY - stR.top + stage.scrollTop;
+}
+function moveGuideTo(el, axis, e){
+  const px = guidePx(e, axis);
+  if(axis === 'v'){ el.style.left = px + 'px'; el.style.top = ''; }
+  else { el.style.top = px + 'px'; el.style.left = ''; }
+  return px;
+}
+window.addEventListener('mousemove', function(e){
+  if(!guideDrag) return;
+  const px = moveGuideTo(guideDrag.el, guideDrag.axis, e);
+  const g = guides.find(x => x.el === guideDrag.el);
+  if(g) g.px = px;
+});
+window.addEventListener('mouseup', function(){
+  if(!guideDrag) return;
+  const gd = guideDrag; guideDrag = null;
+  const px = parseFloat(gd.el.style.left || gd.el.style.top) || 0;
+  if(gd.isNew) guides.push({axis: gd.axis, el: gd.el, px: px});
+});
+document.addEventListener('dblclick', function(e){
+  const g = e.target.closest && e.target.closest('.ff-guide');
+  if(g){
+    guides = guides.filter(x => x.el !== g);
+    g.remove();
+  }
+});
+function guideTargets(){
+  // 参考线位置（stage 内容 px）→ 画布用户单位，并入吸附目标
+  const out = {xs: [], ys: []};
+  const offX = canvas.offsetLeft, offY = canvas.offsetTop;
+  const cw = Math.max(1, canvas.clientWidth), ch = Math.max(1, canvas.clientHeight);
+  const s = svgEl();
+  const vb = s && s.viewBox.baseVal;
+  if(!vb || !vb.width) return out;
+  const ux = vb.width / cw, uy = vb.height / ch;
+  guides.forEach(function(g){
+    if(g.axis === 'v') out.xs.push((g.px - offX) * ux);
+    else out.ys.push((g.px - offY) * uy);
+  });
+  return out;
+}
+
+/* ---------- 连线跟随：提交前计算端点搭边的拉伸 ---------- */
+function computeGlue(members, bases, dx, dy){
+  const items = [];
+  const tol = 2;
+  svgEl().querySelectorAll('line').forEach(function(ln){
+    if(members.some(m => m === ln || m.contains(ln) || ln.contains(m))) return;
+    const attrs = {};
+    [['x1', 'y1'], ['x2', 'y2']].forEach(function(kp){
+      const px = parseFloat(ln.getAttribute(kp[0]));
+      const py = parseFloat(ln.getAttribute(kp[1]));
+      if(!isFinite(px) || !isFinite(py)) return;
+      let gx = 0, gy = 0;
+      members.forEach(function(m, i){
+        const b = bases[i];
+        const inY = py >= b.y - tol && py <= b.y + b.height + tol;
+        const inX = px >= b.x - tol && px <= b.x + b.width + tol;
+        if(inY && (Math.abs(px - b.x) <= tol ||
+                   Math.abs(px - (b.x + b.width)) <= tol)) gx = dx;
+        if(inX && (Math.abs(py - b.y) <= tol ||
+                   Math.abs(py - (b.y + b.height)) <= tol)) gy = dy;
+      });
+      if(gx || gy){
+        attrs[kp[0]] = +(px + gx).toFixed(2);
+        attrs[kp[1]] = +(py + gy).toFixed(2);
+      }
+    });
+    if(Object.keys(attrs).length) items.push({id: ln.dataset.ffid, set: attrs});
+  });
+  return items;
+}
+
+/* ---------- Alt + 悬停 = 查主元素到最近邻的净距 ---------- */
+function showDistances(){
+  const p = primaryEl();
+  if(!p) return;
+  let b; try{ b = visualBox(p); }catch(_){ return; }
+  let best = null;
+  svgEl().querySelectorAll('[data-ffid]:not([data-fflock])').forEach(function(el){
+    if(el === p) return;
+    let o; try{ o = visualBox(el); }catch(_){ return; }
+    const cands = [
+      [b.x - (o.x + o.width), '← '], [o.x - (b.x + b.width), '→ '],
+      [b.y - (o.y + o.height), '↑ '], [o.y - (b.y + b.height), '↓ ']];
+    cands.forEach(function(g){
+      if(g[0] >= -1 && (best === null || g[0] < best[0]))
+        best = [g[0], (g[0] * state.unit_mm).toFixed(1) + 'mm ' + g[1] + ' ' + el.dataset.ffid];
+    });
+  });
+  document.getElementById('st-pos').textContent =
+    best ? '间距 ' + best[1] : '（无水平/垂直净距）';
+}
+
+/* ---------- 集成点 ---------- */
+const _oldSetSelection = setSelection;
+setSelection = function(ids){
+  _oldSetSelection(ids);
+  ALIGNBAR.style.display = selIds.length >= 2 ? '' : 'none';
+  renderLayers();
+};
+const _oldRefresh = refresh;
+refresh = async function(){
+  await _oldRefresh();
+  renderHist();
+  renderLayers();
+  updateMinimap();
+  if(cmpOn) placeOverlay();
+};
+const _oldResize = null;
+window.addEventListener('resize', function(){ updateMinimap(); if(cmpOn) placeOverlay(); });
 
 refresh().then(function(){
   gridStep = autoGridStep();

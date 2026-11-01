@@ -568,8 +568,9 @@ def append_op(fig: Path, op: dict) -> Path:
 
 
 def read_ops(fig: Path) -> list[dict]:
-    """读清单。坏行跳过而不是抛异常——否则一行残缺就让整个工具打不开。"""
-    p = log_path(fig)
+    """读清单。坏行跳过而不是抛异常——否则一行残缺就让整个工具打不开。
+    fig 传图文件或直接传 .jsonl 清单路径都可以（replay 要读别的图的清单）。"""
+    p = fig if str(fig).endswith(".jsonl") else log_path(fig)
     if not p.exists():
         return []
     ops = []
@@ -772,6 +773,22 @@ def set_text(fig: Path, eid: str, text: str,
     return op
 
 
+def _regroup_raw(raw: str, eids: list[str]) -> str:
+    """redo 用：在已还原的内容上按 eids 重新组合（拼接规则与 group_elements 一致）。"""
+    root = _build_tree(raw)
+    nodes = []
+    for eid in eids:
+        node = _find_node(root, eid)
+        if node is None or node.get("end") is None:
+            raise KeyError(f"找不到元素 {eid}")
+        nodes.append(node)
+    nodes.sort(key=lambda n: n["start"])
+    inner = "\n  ".join(_region_of(raw, n) for n in nodes)
+    g_xml = '<g data-ffgroup="1">\n  ' + inner + "\n</g>"
+    first, last = nodes[0], nodes[-1]
+    return raw[:first["start"]] + g_xml + raw[last["end"]:]
+
+
 def clean_ops(fig: Path) -> dict:
     """清理清单（只重写 jsonl，图文件一个字节不动——图已是最终态）：
 
@@ -847,6 +864,222 @@ def move_multi(fig: Path, moves: list[dict], note: str = "") -> dict:
     return op
 
 
+def move_multi(fig: Path, moves: list[dict], note: str = "") -> dict:
+    """一次手势修改多个元素：记一条 move_multi op，撤销整体回退。
+
+    item 形态（同一条里可混用）：
+      {"id", "dx", "dy"}               位移（多选拖动/对齐/微调）
+      {"id", "set": {attr: value}}     属性修改（连线跟随拉伸、批量字号、显隐）
+      {"id", "dx", "dy", "set": {...}} 都要
+    set 的旧值自动记录进 set_from，撤销按旧值精确还原——
+    一次手势一条 op，Ctrl+Z 整组回退，不会只退一个元素。
+    """
+    items: list[dict] = []
+    for m in moves:
+        it = {"id": m["id"]}
+        if m.get("dx") or m.get("dy"):
+            dx = round(float(m.get("dx") or 0), 3)
+            dy = round(float(m.get("dy") or 0), 3)
+            if not (math.isfinite(dx) and math.isfinite(dy)):
+                raise ValueError("位移必须是有限数值")
+            if dx or dy:
+                it["dx"], it["dy"] = dx, dy
+        if m.get("set"):
+            it["set"] = dict(m["set"])
+        if "dx" in it or "set" in it:
+            items.append(it)
+    if not items:
+        raise ValueError("没有可应用的改动")
+    raw = read_raw(fig)
+    _backup(fig, raw)
+    for it in items:                      # set 旧值先记录，撤销按旧值还原
+        if "set" in it:
+            t = _locate(raw, it["id"])
+            cur_style = _get_style(t["text"])
+            it["set_from"] = {k: (cur_style.get(k) if k in STYLE_PROPS
+                                  else _attr(t["text"], k)) for k in it["set"]}
+    new = raw
+    for it in items:
+        if "dx" in it:
+            new = apply_move(new, it["id"], it["dx"], it["dy"])
+        if "set" in it:
+            new = apply_set(new, it["id"], it["set"])
+    if new == raw:
+        raise RuntimeError("未产生任何改动")
+    write_raw(fig, new)
+    op = {"id": items[0]["id"], "op": "move_multi", "n": len(items), "items": items}
+    lbl = _text_label(new, items[0]["id"])
+    if lbl:
+        op["label"] = lbl
+    if note:
+        op["note"] = note
+    append_op(fig, op)
+    return op
+
+
+def _region_of(raw: str, node: dict) -> str:
+    return raw[node["start"]:node["end"]]
+
+
+def _tree_node(raw: str, eid: str) -> dict | None:
+    return _find_node(_build_tree(raw), eid)
+
+
+def copy_element(fig: Path, eid: str, dx: float = 0.0, dy: float = 0.0,
+                 expect: str | None = None) -> dict:
+    """深拷贝元素（含子树），贴在原元素正后方并位移 (dx,dy)。返回新编号。
+
+    新编号可以精确推出来：拷贝与原元素同标签且紧邻，同标签计数器 = 原+1。
+    首次引入「增」类结构 op：清单记整段 xml + 锚点，撤销按 xml 守卫摘除。
+    """
+    raw = read_raw(fig)
+    _guard(raw, eid, expect)
+    _backup(fig, raw)
+    node = _tree_node(raw, eid)
+    if node is None or node.get("end") is None:
+        raise KeyError(f"找不到元素 {eid}")
+    xml = _region_of(raw, node)
+    parent, _ = _find_parent(_build_tree(raw), eid)
+    if dx or dy:
+        # 片段根永远是片段内第一个同名标签 → 片段内 eid = tag:0
+        xml = apply_move(xml, node["name"] + ":0", dx, dy)
+    write_raw(fig, raw[:node["end"]] + xml + raw[node["end"]:])
+    n = int(eid.rsplit(":", 1)[1])
+    new_eid = f'{node["name"]}:{n + 1}'
+    op = {"id": eid, "op": "add", "xml": xml, "parent": parent.get("path", ""),
+          "after_eid": eid, "new": new_eid}
+    lbl = _text_label(read_raw(fig), new_eid)
+    if lbl:
+        op["label"] = lbl
+    append_op(fig, op)
+    return op
+
+
+def paste_element(fig: Path, xml: str, after_eid: str,
+                  dx: float = 0.0, dy: float = 0.0) -> dict:
+    """把剪贴板里的整段元素 xml 插到 after_eid 之后（Ctrl+V）。"""
+    raw = read_raw(fig)
+    _backup(fig, raw)
+    node = _tree_node(raw, after_eid)
+    if node is None or node.get("end") is None:
+        raise KeyError(f"找不到锚点元素 {after_eid}")
+    if dx or dy:
+        xml = apply_move(xml, node["name"] + ":0", dx, dy)
+    parent, _ = _find_parent(_build_tree(raw), after_eid)
+    write_raw(fig, raw[:node["end"]] + xml + raw[node["end"]:])
+    tag_m = re.match(r"<\s*([\w:.-]+)", xml)
+    ptag = tag_m.group(1).split(":")[-1] if tag_m else node["name"]
+    if ptag == node["name"]:
+        # 锚点与粘贴体同标签且紧邻 → 计数器 = 锚点+1
+        new_eid = f"{ptag}:{int(after_eid.rsplit(':', 1)[1]) + 1}"
+    else:
+        new_eid = None
+        root2 = _build_tree(read_raw(fig))
+        p2 = _find_by_path(root2, parent.get("path", ""))
+
+        def _walk_eids(node):
+            for c in node["children"]:
+                if c.get("eid"):
+                    yield c
+                yield from _walk_eids(c)
+        if p2:
+            for c in _walk_eids(p2):
+                if c["name"] == ptag and _region_of(read_raw(fig), c) == xml:
+                    new_eid = c["eid"]
+                    break
+    op = {"id": after_eid, "op": "add", "xml": xml, "parent": parent.get("path", ""),
+          "after_eid": after_eid, "new": new_eid}
+    append_op(fig, op)
+    return op
+
+
+def group_elements(fig: Path, eids: list[str]) -> dict:
+    """把同父的若干元素包进一个新 <g>（占据成员整体的文档区间）。
+
+    撤销 = 整份文件恢复到组合前字节（parent_content_before）；
+    重做 = 拿着 eids 在已还原的内容上重新组合——eids 在还原态下有效。
+    """
+    raw = read_raw(fig)
+    _backup(fig, raw)
+    root = _build_tree(raw)
+    parent = None
+    parent_path = None
+    nodes = []
+    for eid in eids:
+        node = _find_node(root, eid)
+        if node is None or node.get("end") is None:
+            raise KeyError(f"找不到元素 {eid}")
+        p, _ = _find_parent(root, eid)
+        if parent_path is None:
+            parent, parent_path = p, p.get("path", "")
+        elif p.get("path", "") != parent_path:
+            raise ValueError("只能组合同一父层级下的元素（先用图层树放到同一层）")
+        nodes.append(node)
+    nodes.sort(key=lambda n: n["start"])
+    inner = "\n  ".join(_region_of(raw, n) for n in nodes)
+    g_xml = '<g data-ffgroup="1">\n  ' + inner + "\n</g>"
+    first, last = nodes[0], nodes[-1]
+    write_raw(fig, raw[:first["start"]] + g_xml + raw[last["end"]:])
+    g_eid = None
+    root2 = _build_tree(read_raw(fig))
+    p2 = _find_by_path(root2, parent_path)
+
+    def _walk_eids(node):
+        for c in node["children"]:
+            if c.get("eid"):
+                yield c
+            yield from _walk_eids(c)
+    if p2:
+        for c in _walk_eids(p2):
+            if _region_of(read_raw(fig), c) == g_xml:
+                g_eid = c["eid"]
+                break
+    if g_eid is None:
+        raise RuntimeError("组合落盘后找不到新 <g>")
+    op = {"id": g_eid, "op": "group", "eids": list(eids),
+          "parent_content_before": raw}
+    append_op(fig, op)
+    return op
+
+
+def ungroup_element(fig: Path, eid: str) -> dict:
+    """拆掉一层 <g>：子元素提升到父层原位置。带 transform 的 g 拒绝拆
+    （子元素会跳位）——先在界面上把变换清掉。"""
+    raw = read_raw(fig)
+    _backup(fig, raw)
+    node = _tree_node(raw, eid)
+    if node is None or node["name"] != "g" or node.get("end") is None:
+        raise ValueError(f"{eid} 不是 <g>，无法解组")
+    if _attr(node["text"], "transform") is not None:
+        raise ValueError(f"{eid} 带 transform，解组会让子元素跳位——先清变换")
+    inner = raw[node["end"]:node["end"] - len("</g>")]
+    write_raw(fig, raw[:node["start"]] + inner + raw[node["end"]:])
+    op = {"id": eid, "op": "ungroup", "parent_content_before": raw}
+    append_op(fig, op)
+    return op
+
+
+def tree_view(raw: str) -> list[dict]:
+    """图层树：只列 MOVABLE 元素（含 g 嵌套），跳过 clipPath/mask/pattern/defs
+    ——里面的裁剪矩形不是用户要操作的对象。"""
+    root = _build_tree(raw)
+    SKIP_BRANCH = {"clipPath", "mask", "pattern", "defs"}
+
+    def walk(node):
+        out = []
+        for c in node["children"]:
+            if c["name"] in SKIP_BRANCH:
+                continue
+            if c.get("eid") is None:
+                out.extend(walk(c))
+            else:
+                out.append({"eid": c["eid"], "tag": c["name"],
+                            "kids": walk(c)})
+        return out
+
+    return walk(root)
+
+
 def redo_op(raw: str, op: dict) -> str:
     """把一条已撤销的 op 重新应用（undo 的严格逆运算）。"""
     kind = op.get("op")
@@ -856,7 +1089,25 @@ def redo_op(raw: str, op: dict) -> str:
         new, _ = _retext_raw(raw, op["id"], op.get("to") or "")
         return new
     if kind == "move_multi":
-        return apply_moves(raw, op.get("moves") or [])
+        for it in op.get("items") or []:
+            if "dx" in it:
+                raw = apply_move(raw, it["id"], it["dx"], it["dy"])
+            if "set" in it:
+                raw = apply_set(raw, it["id"], it["set"])
+        return raw
+    if kind == "group":
+        return _regroup_raw(raw, op.get("eids") or [])
+    if kind == "ungroup":
+        node = _tree_node(raw, op["id"])
+        if node is None or node["name"] != "g":
+            raise KeyError(f"找不到 {op['id']}")
+        inner = raw[node["end"]:node["end"] - len("</g>")]
+        return raw[:node["start"]] + inner + raw[node["end"]:]
+    if kind == "add":
+        node = _tree_node(raw, op["after_eid"])
+        if node is None or node.get("end") is None:
+            raise KeyError(f"找不到锚点 {op['after_eid']}")
+        return raw[:node["end"]] + op["xml"] + raw[node["end"]:]
     if kind == "order":
         root = _build_tree(raw)
         parent = _find_by_path(root, op.get("parent") or "")
@@ -886,10 +1137,24 @@ def undo_last(fig: Path) -> dict | None:
         s0, e0 = _text_region(raw, t)
         write_raw(fig, raw[:s0] + last["from"] + raw[e0:])
     elif last.get("op") == "move_multi":
-        # 逆序逐个反向位移，一次手势整体还原
-        for m in reversed(last.get("moves") or []):
-            raw = apply_move(raw, m["id"], -float(m["dx"]), -float(m["dy"]))
+        # 逆序逐项还原：位移取反、属性写回旧值——一次手势整体还原
+        for it in reversed(last.get("items") or []):
+            if "dx" in it:
+                raw = apply_move(raw, it["id"], -it["dx"], -it["dy"])
+            if "set" in it:
+                raw = apply_set(raw, it["id"], it.get("set_from") or {})
         write_raw(fig, raw)
+    elif last.get("op") == "add":
+        # 摘除拷贝：按 xml 守卫定位——内容对不上说明拷贝体又被改过，拒绝盲删
+        node = _tree_node(raw, last.get("new") or "")
+        if node is None or _region_of(raw, node) != last["xml"]:
+            raise RuntimeError("拷贝体已被改动，无法安全撤销——先 ls 核对")
+        raw = raw[:node["start"]] + raw[node["end"]:]
+        write_raw(fig, raw)
+    elif last.get("op") == "group":
+        write_raw(fig, last["parent_content_before"])
+    elif last.get("op") == "ungroup":
+        write_raw(fig, last["parent_content_before"])
     elif last.get("op") == "order":
         write_raw(fig, undo_order(raw, last))
     else:

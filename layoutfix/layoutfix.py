@@ -76,6 +76,89 @@ def cmd_clean(a) -> int:
     return 0
 
 
+def cmd_replay(a) -> int:
+    """把旧清单里的人工调整套到重新生成的图上。
+
+    编号是位置序号，重新生成后必然漂移——靠 label（文字前 16 字）做内容锚点
+    映射到新图；映射不上的 op 跳过并列出（不猜）。结构 op（add/group/ungroup）
+    不重放。默认 --dry 只打印计划；确认后去掉 --dry 落盘并写新清单。
+    """
+    new_fig, old_log = Path(a.file), Path(a.log)
+    ops = edit.read_ops(old_log)
+    raw = edit.read_raw(new_fig)
+    # 内容锚点表：text 元素的 hint 就是内容前 24 字（label 是前 16 字，够对齐）
+    texts = [(el["eid"], el["hint"])
+             for el in edit.inventory(edit.read_raw(new_fig))
+             if el["tag"] == "text"]
+
+    def resolve(eid, label):
+        if label:
+            hits = [e for e, txt in texts if txt.startswith(label)]
+            if len(hits) == 1:
+                return hits[0]
+        return eid if edit._tree_node(raw, eid) else None
+
+    applied, skipped = [], []
+    for op in ops:
+        kind = op.get("op")
+        if kind in ("add", "group", "ungroup", "order"):
+            skipped.append((op, "结构 op 不重放"))
+            continue
+        if kind == "move_multi":
+            items2 = []
+            for it in op.get("items") or []:
+                nid = resolve(it["id"], op.get("label"))
+                if nid:
+                    it2 = dict(it)
+                    it2["id"] = nid
+                    items2.append(it2)
+                else:
+                    skipped.append((op, it["id"] + " 映射不上"))
+            if items2:
+                applied.append({**op, "items": items2})
+            continue
+        label = op.get("label") or (op.get("to") or "")[:16] \
+            if kind == "set_text" else op.get("label")
+        nid = resolve(op["id"], label)
+        if not nid:
+            skipped.append((op, op["id"] + " 映射不上"))
+            continue
+        applied.append({**op, "id": nid})
+
+    print(f"旧清单 {len(ops)} 条 → 可重放 {len(applied)}，跳过 {len(skipped)}")
+    for op, why in skipped:
+        print(f"  跳过: [{op.get('op')}] {op.get('id')} — {why}")
+    if a.dry:
+        for op in applied:
+            print("  计划:", op.get("op"), op.get("id"),
+                  op.get("label") or (op.get("to") or ""))
+        return 0
+    if not applied:
+        print("没有可应用的改动，未写盘")
+        return 0
+    new = raw
+    for op in applied:
+        kind = op.get("op")
+        if kind == "set":
+            new = edit.apply_set(new, op["id"], op.get("to") or {})
+        elif kind == "set_text":
+            new, _ = edit._retext_raw(new, op["id"], op.get("to") or "")
+        elif kind == "move_multi":
+            for it in op.get("items") or []:
+                if "dx" in it:
+                    new = edit.apply_move(new, it["id"], it["dx"], it["dy"])
+                if "set" in it:
+                    new = edit.apply_set(new, it["id"], it["set"])
+        else:
+            new = edit.apply_move(new, op["id"],
+                                  float(op.get("dx") or 0), float(op.get("dy") or 0))
+    edit.write_raw(new_fig, new)
+    for op in applied:
+        edit.append_op(new_fig, op)
+    print(f"已套用 {len(applied)} 条到 {new_fig}，清单同步写入")
+    return 0
+
+
 def cmd_ls(a) -> int:
     fig = Path(a.file)
     # 必须按字节读：read_text 在 Windows 会把 \r\n 折成 \n，
@@ -127,6 +210,12 @@ def main(argv=None) -> int:
     p = sub.add_parser("ls", help="列出可拖元素")
     p.add_argument("file")
     p.set_defaults(fn=cmd_ls)
+
+    p = sub.add_parser("replay", help="把旧清单的人工调整套到重新生成的图上")
+    p.add_argument("file", help="重新生成的新图")
+    p.add_argument("log", help="旧图的 .nudge.jsonl 清单")
+    p.add_argument("--dry", action="store_true", help="只打印映射计划，不写盘")
+    p.set_defaults(fn=cmd_replay)
 
     a = ap.parse_args(argv)
     try:

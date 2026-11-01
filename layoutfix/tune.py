@@ -319,7 +319,10 @@ def serve(fig: Path, port: int = 8770, open_browser: bool = True,
                                "image/svg+xml; charset=utf-8")
                 elif path == "/state":
                     with lock:
-                        st = state_of(get_fig())
+                        f = get_fig()
+                        st = state_of(f)
+                        st["tree"] = edit.tree_view(edit.read_raw(f))
+                        st["redo_n"] = len(stacks_for(f))
                     self._send(json.dumps(st, ensure_ascii=False).encode("utf-8"))
                 elif path == "/ping":
                     # 心跳：页面开着每 15s 打一次。空闲自关的依据就是它——
@@ -405,6 +408,70 @@ def serve(fig: Path, port: int = 8770, open_browser: bool = True,
                                            expect=req.get("expect"))
                         stacks_for(f).clear()
                     self._send(json.dumps({"ok": True, "op": op, "found": found},
+                                          ensure_ascii=False).encode("utf-8"))
+                except Exception as exc:                 # noqa: BLE001
+                    self._send(json.dumps({"ok": False, "error": str(exc)},
+                                          ensure_ascii=False).encode("utf-8"))
+                return
+            if path == "/copy":
+                n = int(self.headers.get("Content-Length", 0))
+                try:
+                    req = json.loads(self.rfile.read(n) or b"{}")
+                    with lock:
+                        f = get_fig()
+                        op = edit.copy_element(f, req["id"],
+                                               float(req.get("dx") or 0),
+                                               float(req.get("dy") or 0),
+                                               expect=req.get("expect"))
+                        stacks_for(f).clear()
+                    self._send(json.dumps({"ok": True, "op": op,
+                                           "new": op.get("new")},
+                                          ensure_ascii=False).encode("utf-8"))
+                except Exception as exc:                 # noqa: BLE001
+                    self._send(json.dumps({"ok": False, "error": str(exc)},
+                                          ensure_ascii=False).encode("utf-8"))
+                return
+            if path == "/paste":
+                n = int(self.headers.get("Content-Length", 0))
+                try:
+                    req = json.loads(self.rfile.read(n) or b"{}")
+                    with lock:
+                        f = get_fig()
+                        op = edit.paste_element(f, str(req["xml"]),
+                                                req["after_eid"],
+                                                float(req.get("dx") or 0),
+                                                float(req.get("dy") or 0))
+                        stacks_for(f).clear()
+                    self._send(json.dumps({"ok": True, "op": op,
+                                           "new": op.get("new")},
+                                          ensure_ascii=False).encode("utf-8"))
+                except Exception as exc:                 # noqa: BLE001
+                    self._send(json.dumps({"ok": False, "error": str(exc)},
+                                          ensure_ascii=False).encode("utf-8"))
+                return
+            if path == "/group":
+                n = int(self.headers.get("Content-Length", 0))
+                try:
+                    req = json.loads(self.rfile.read(n) or b"{}")
+                    with lock:
+                        f = get_fig()
+                        op = edit.group_elements(f, req["eids"])
+                        stacks_for(f).clear()
+                    self._send(json.dumps({"ok": True, "op": op, "new": op["id"]},
+                                          ensure_ascii=False).encode("utf-8"))
+                except Exception as exc:                 # noqa: BLE001
+                    self._send(json.dumps({"ok": False, "error": str(exc)},
+                                          ensure_ascii=False).encode("utf-8"))
+                return
+            if path == "/ungroup":
+                n = int(self.headers.get("Content-Length", 0))
+                try:
+                    req = json.loads(self.rfile.read(n) or b"{}")
+                    with lock:
+                        f = get_fig()
+                        op = edit.ungroup_element(f, req["id"])
+                        stacks_for(f).clear()
+                    self._send(json.dumps({"ok": True, "op": op},
                                           ensure_ascii=False).encode("utf-8"))
                 except Exception as exc:                 # noqa: BLE001
                     self._send(json.dumps({"ok": False, "error": str(exc)},
