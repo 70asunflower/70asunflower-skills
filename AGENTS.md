@@ -8,12 +8,13 @@
 <!-- BEGIN skillsync-rules -->
 ## 用户级技能库
 
-本机所有 AI agent 的用户级技能共享同一个仓库：`D:\Project\workspace\my_github\70asunflower-skills`。
-各 agent 的 skills 目录里每一项都是指向该仓库的目录联结（junction），不是副本。
+本机所有 AI agent 的用户级技能放在同一处：`D:\Projects\agent\skills\`，分两个根：
+`hub\` 是本仓库（自建技能，git 管理），`vendor\` 放第三方技能（不属本仓库，只分发）。
+各 agent 的 skills 目录里每一项都是指向这两个根之一的目录联结（junction），不是副本。
 
 - **修改技能**：直接改。改 agent 目录还是改仓库，都是同一份文件。
 - **新增技能**：必须建在仓库里（`<skill>/SKILL.md`，frontmatter 需 `name` 与 `description`，`name` 与目录名一致）。不要在你的 skills 目录下新建真实目录——那个父目录是真实的，新建出来的会脱离仓库，其他 agent 看不到。
-- **第三方技能**（Kimi/Wind 官方、Academic pack、FBSir 等）由 `.gitignore` 的 `skillsync` 标记区块排除，不要 `git add`。
+- **第三方技能**（Kimi/Wind 官方、Academic pack、FBSir 等）放 `vendor\`，不要放进 hub，也不要 `git add`。`.gitignore` 的 `skillsync` 区块仅作历史兼容保留。
 - **不要复制技能**。副本会立刻开始漂移。
 - WorkBuddy 国内版（`~/.workbuddy`）与海外版（`~/.workbuddy-ai`）是两个独立安装，技能互不相通，两边都要维护。
 

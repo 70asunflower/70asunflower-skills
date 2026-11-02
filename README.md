@@ -63,6 +63,27 @@ cp -r project-init ~/.claude/skills/
 
 技能由 agent 按描述自动触发，不需要记命令——每个 `SKILL.md` 开头的 `description` 就是触发条件。
 
+## 自建与第三方分开放（多根）
+
+自建技能入本仓库版本控制；从别处下载的第三方技能不该混进来，也不该被 `git add -A` 顺手提交。做法是把它们放到**同级目录**，由 `skillsync.py` 一并分发：
+
+```
+skills/
+  hub/       本仓库，自建技能，git 管理
+  vendor/    第三方技能，不属本仓库，只分发
+```
+
+在 `~/.agents/skillsync.json` 里声明根目录，`hub` 始终排第一（同名技能以 hub 为准，重名会提示并忽略后来者）：
+
+```json
+{
+  "hub": "<skills>/hub",
+  "roots": ["<skills>/hub", "<skills>/vendor"]
+}
+```
+
+之后 `status` / `link` / `doctor` 都会同时看这两个根，junction 分别指向各自所在的根，agent 侧完全无感——它看到的仍是一层平铺的技能目录。`gitignore` 命令只管 `hub`，`vendor` 根本不进仓库，也就不需要排除名单了。
+
 ## 全部 28 个技能
 
 按用途分组。标 `personal` 的绑了个人路径 / 账号 / 登录态，别人装了要改配置；
@@ -155,11 +176,11 @@ agent 目录复制」，在 junction 布局下方向相反，会把仓库内容�
 
 ## 外部技能
 
-除上表收录的自制技能外，本机还统一管理着一批外部技能——包括 `humanizer-zh`（去 AI 味润色，MIT，来自 op7418/Humanizer-zh）、`kimi-webbridge`（浏览器接管）、`mcporter`（MCP 调度）、`fireworks-tech-graph`（SVG 图形）等。它们以完全相同的 junction 方式分发到各 agent，但**不纳入本仓库版本控制**（见 `.gitignore` 的 `skillsync` 标记区块），只随目录存在于本机。
+除上表收录的自制技能外，本机还统一管理着一批外部技能——包括 `humanizer-zh`（去 AI 味润色，MIT，来自 op7418/Humanizer-zh）、`kimi-webbridge`（浏览器接管）、`mcporter`（MCP 调度）、`fireworks-tech-graph`（SVG 图形）等。它们放在同级 `vendor/` 目录（见上文「自建与第三方分开放」），以相同的 junction 方式分发到各 agent，但不属于本仓库，也不进版本控制。
 
 其中 `humanizer-zh` 已被定为**写长文时的固定动作**：报告、方案、论文、正式文档、README、汇报材料等长文本，产出草稿后过一遍该技能再交付。
 
-判定为第三方的不能只看「git 未跟踪」，那和「刚建的新技能」无法区分；`.gitignore` 的区块现在**只减不增**，要排除新目录得显式 `skillsync.py gitignore --add <name>`。
+早期做法是把第三方目录放在仓库根、靠 `.gitignore` 标记区块排除；那种布局下「新技能」与「第三方」只能靠名单区分，容易误判。迁到 `vendor/` 后，物理位置即分类，`.gitignore` 区块只作为历史兼容保留。
 
 ## 许可
 

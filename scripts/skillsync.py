@@ -120,6 +120,7 @@ def remove_junction(link_path):
 def load_config():
     cfg = {
         "hub": str(DEFAULT_HUB),
+        "roots": [],     # 技能根目录列表；hub 是其中之一，其余为只分发不入库的目录
         "agents": {k: str(v) for k, v in DEFAULT_AGENTS.items()},
         "exclude": {},   # {agent: [skill, ...]} 该 agent 不接收的技能
         "gitignore_untracked_block": True,
@@ -129,6 +130,8 @@ def load_config():
             user = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
             if "hub" in user:
                 cfg["hub"] = user["hub"]
+            if isinstance(user.get("roots"), list):
+                cfg["roots"] = [str(r) for r in user["roots"]]
             if isinstance(user.get("agents"), dict):
                 # 与默认合并，未列出的 agent 保留
                 cfg["agents"].update({k: str(v) for k, v in user["agents"].items()})
@@ -140,7 +143,18 @@ def load_config():
             print(f"[warn] 读取 {CONFIG_PATH} 失败，用默认配置: {e}")
     cfg["hub"] = Path(cfg["hub"])
     cfg["agents"] = {k: Path(v) for k, v in cfg["agents"].items()}
+    cfg["roots"] = normalize_roots(cfg)
     return cfg
+
+
+def normalize_roots(cfg):
+    """把 roots 规范化：hub 始终排第一，去重、转 Path、去掉不存在的项不在这里做。"""
+    out = [Path(cfg["hub"])]
+    for r in cfg.get("roots") or []:
+        p = Path(r)
+        if not any(same_path(p, q) for q in out):
+            out.append(p)
+    return out
 
 
 # ---------------------------------------------------------------- 指纹
@@ -228,23 +242,34 @@ def collect(cfg):
 
 
 def hub_skills(cfg):
-    """主库里的技能。非技能目录（README、scripts、.github 等）一律忽略。"""
-    hub = cfg["hub"]
+    """所有技能根目录下的技能。非技能目录（README、scripts、.github 等）一律忽略。
+
+    多根：hub 是入库的自建技能，roots 里其余目录（如 vendor）只分发、不入库。
+    同名技能先到先得（hub 优先），重名的后来者忽略并提示，避免静默覆盖。
+    """
     out = {}
-    if not hub.exists():
-        return out
-    for ch in sorted(hub.iterdir(), key=lambda p: p.name.lower()):
-        if not ch.is_dir() or ch.name in SKIP_DIRS or ch.name.startswith("."):
+    duplicates = []
+    for root in cfg.get("roots") or [cfg["hub"]]:
+        if not root.exists():
             continue
-        if is_link(ch):
-            tgt = link_target(ch)
-            out[ch.name] = {"kind": "link", "target": str(tgt) if tgt else None,
-                            "target_path": tgt}
-            continue
-        if not (ch / "SKILL.md").exists():
-            continue          # 仓库里的 README/scripts 之类，不是技能
-        out[ch.name] = {"kind": "real", "has_skillmd": True}
-        out[ch.name].update(describe(ch))
+        for ch in sorted(root.iterdir(), key=lambda p: p.name.lower()):
+            if not ch.is_dir() or ch.name in SKIP_DIRS or ch.name.startswith("."):
+                continue
+            if is_link(ch):
+                tgt = link_target(ch)
+                item = {"kind": "link", "target": str(tgt) if tgt else None,
+                        "target_path": tgt, "root": str(root)}
+            else:
+                if not (ch / "SKILL.md").exists():
+                    continue      # 仓库里的 README/scripts 之类，不是技能
+                item = {"kind": "real", "has_skillmd": True, "root": str(root)}
+                item.update(describe(ch))
+            if ch.name in out:
+                duplicates.append((ch.name, str(root)))
+                continue
+            out[ch.name] = item
+    for name, root in duplicates:
+        print(f"[warn] 技能重名：{root}/{name} 与已收录的同名技能冲突，已忽略前者")
     return out
 
 
@@ -261,8 +286,8 @@ def cmd_status(cfg, args):
         all_skills |= set(col[a]["skills"])
     all_skills = sorted(all_skills, key=str.lower)
 
-    hub_s = str(cfg["hub"])
-    print(f"主库 hub: {hub_s}  ({len(hub)} 项)\n")
+    hub_s = " | ".join(str(r) for r in cfg["roots"])
+    print(f"技能根 ({len(cfg['roots'])}): {hub_s}  (共 {len(hub)} 项)\n")
     print("状态说明: hub=主库真实目录  ->hub=正确链接  ->other=指向别处  REAL=真实副本(未归集)  . =无  NO-MD=目录无SKILL.md\n")
 
     widths = {a: max(len(a), 8) for a in agents}
@@ -280,9 +305,14 @@ def cmd_status(cfg, args):
                 continue
             if it["kind"] == "link":
                 tgt = it.get("target_path")
-                if same_path(tgt, cfg["hub"] / s):
+                hit_root = None
+                for r in cfg["roots"]:
+                    if same_path(tgt, r / s):
+                        hit_root = r
+                        break
+                if hit_root is not None:
                     cells.append("->hub".ljust(widths[a]))
-                elif same_path(Path(tgt).parent if tgt else None, cfg["hub"]):
+                elif any(same_path(Path(tgt).parent if tgt else None, r) for r in cfg["roots"]):
                     cells.append("->hub?".ljust(widths[a]))
                 else:
                     # 指向某个已知 agent 目录 => 链式
@@ -418,7 +448,10 @@ def cmd_doctor(cfg, args):
     issues = 0
     broken = 0
 
-    print(f"主库: {cfg['hub']}  exists={cfg['hub'].exists()}\n")
+    print(f"主库: {cfg['hub']}  exists={cfg['hub'].exists()}")
+    for r in cfg["roots"][1:]:
+        print(f"附加根: {r}  exists={r.exists()}")
+    print()
 
     # 1 断链
     for a in agents:
@@ -722,7 +755,7 @@ def find_conflicts(cfg):
     for name, it in hub.items():
         if it["kind"] != "real":
             continue
-        hb = body_sig(cfg["hub"] / name)
+        hb = body_sig(Path(it["root"]) / name)
         for a, data in col.items():
             if data["__absent__"]:
                 continue
@@ -755,7 +788,7 @@ def cmd_link(cfg, args):
             if name in ex:
                 continue
             p = base / name
-            target = cfg["hub"] / name
+            target = Path(hub[name]["root"]) / name
             if is_link(p):
                 if same_path(link_target(p), target):
                     continue
@@ -774,7 +807,7 @@ def cmd_link(cfg, args):
 
     for action, a, name in plan:
         p = cfg["agents"][a] / name
-        target = cfg["hub"] / name
+        target = Path(hub[name]["root"]) / name
         if action == "relink":
             remove_junction(p)
             make_junction(p, target)
@@ -990,6 +1023,7 @@ def main():
     cfg = load_config()
     if args.hub:
         cfg["hub"] = Path(args.hub).expanduser()
+        cfg["roots"] = [cfg["hub"]]
 
     fn = {"status": cmd_status, "scan": cmd_scan, "doctor": cmd_doctor,
           "adopt": cmd_adopt, "link": cmd_link, "add": cmd_add,

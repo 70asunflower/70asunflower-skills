@@ -19,29 +19,5 @@ Thumbs.db
 .pending_batch.json
 
 # >>> skillsync: 第三方技能，不纳入本仓库版本控制 >>>
-academic-paper/
-academic-paper-reviewer/
-academic-pipeline/
-browser-skill/
-darwin-skill/
-deep-research/
-drive-host-cli-headless/
-editaplot/
-etfirst/
-fbs-bookwriter/
-fireworks-tech-graph/
-humanizer-zh/
-ima-kb-sync/
-kimi-webbridge/
-mcporter/
-neodata-financial-search/
-openrouter-model-to-workbuddy/
-port-skill-to-workbuddy/
-singlefile-webapp-iteration/
-skills-security-check/
-storage-analyzer/
-ta-nt-agent-orchestrator/
-ttskill-runtime-entry/
-vscode-byok-provider/
-yfinance-free-source-shim/
+# （当前所有技能目录都已跟踪）
 # <<< skillsync <<<
