@@ -16,7 +16,7 @@
 - **新增技能**：必须建在仓库里（`<skill>/SKILL.md`，frontmatter 需 `name` 与 `description`，`name` 与目录名一致）。不要在你的 skills 目录下新建真实目录——那个父目录是真实的，新建出来的会脱离仓库，其他 agent 看不到。
 - **第三方技能**（Kimi/Wind 官方、Academic pack、FBSir 等）放 `vendor\`，不要放进 hub，也不要 `git add`。`.gitignore` 的 `skillsync` 区块仅作历史兼容保留。
 - **不要复制技能**。副本会立刻开始漂移。
-- WorkBuddy 国内版（`~/.workbuddy`）与海外版（`~/.workbuddy-ai`）是两个独立安装，技能互不相通，两边都要维护。
+- WorkBuddy 国内版（`~/.workbuddy`）与海外版（`~/.workbuddy-ai`）是两个独立安装，各有自己的 skills 目录，但都链到同一处 hub/vendor，改一处两边同时生效。其他 agent 同理。
 
 ## 维护技能：更新即重构，禁止末尾追加
 

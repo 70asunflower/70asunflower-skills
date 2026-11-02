@@ -911,7 +911,27 @@ DEFAULT_RULE_TARGETS = {
     "codex": HOME / ".codex" / "AGENTS.md",
     "zcode": HOME / ".zcode" / "AGENTS.md",
     "gemini": HOME / ".gemini" / "GEMINI.md",
+    # WorkBuddy 的记忆文件在 user-<id>-personal/ 下，id 每台机器不同，用通配展开
+    "workbuddy": HOME / ".workbuddy" / "user-*-personal" / "MEMORY.md",
+    "workbuddy-ai": HOME / ".workbuddy-ai" / "user-*-personal" / "MEMORY.md",
 }
+
+
+def expand_rule_targets(targets):
+    """把带 * 的目标展开成具体文件路径；无通配的原样返回单元素列表。"""
+    out = {}
+    for name, path in targets.items():
+        s = str(path)
+        if "*" not in s:
+            out[name] = [Path(s)]
+            continue
+        p = Path(s)
+        base = p.parent.parent
+        if not base.exists():
+            out[name] = []
+            continue
+        out[name] = [hit / p.name for hit in sorted(base.glob(p.parent.name))]
+    return out
 
 
 def read_rule_block(hub):
@@ -938,44 +958,48 @@ def cmd_rules(cfg, args):
         print(f"错误：在 {cfg['hub'] / 'AGENTS.md'} 里找不到规则标记区块")
         return 2
 
-    targets = cfg.get("rules_targets") or DEFAULT_RULE_TARGETS
+    targets = expand_rule_targets(cfg.get("rules_targets") or DEFAULT_RULE_TARGETS)
     stamp = time.strftime("%Y%m%d-%H%M%S")
     changed = 0
 
-    for name, path in targets.items():
-        path = Path(path)
-        if not path.parent.exists():
-            print(f"  [跳过] {name:<8} 目录不存在: {path.parent}")
+    for name, paths in targets.items():
+        if not paths:
+            print(f"  [跳过] {name:<12} 未找到目标目录")
             continue
 
-        old = path.read_text(encoding="utf-8") if path.exists() else ""
+        for path in paths:
+            if not path.parent.exists():
+                print(f"  [跳过] {name:<12} 目录不存在: {path.parent}")
+                continue
 
-        if RULE_BEGIN in old and RULE_END in old:
-            i = old.find(RULE_BEGIN)
-            j = old.find(RULE_END) + len(RULE_END)
-            new = old[:i] + block + old[j:]
-            action = "更新区块"
-        elif old.strip() and "用户级技能库" in old:
-            # 旧版整篇都是规则，整体替换
-            new = "# 本机技能库与写作规则\n\n" + block + "\n"
-            action = "替换旧版"
-        elif old.strip():
-            new = old.rstrip() + "\n\n" + block + "\n"
-            action = "追加区块"
-        else:
-            new = block + "\n"
-            action = "新建"
+            old = path.read_text(encoding="utf-8") if path.exists() else ""
 
-        if new == old:
-            print(f"  [无变化] {name:<8} {path}")
-            continue
+            if RULE_BEGIN in old and RULE_END in old:
+                i = old.find(RULE_BEGIN)
+                j = old.find(RULE_END) + len(RULE_END)
+                new = old[:i] + block + old[j:]
+                action = "更新区块"
+            elif old.strip() and "用户级技能库" in old:
+                # 旧版整篇都是规则，整体替换
+                new = "# 本机技能库与写作规则\n\n" + block + "\n"
+                action = "替换旧版"
+            elif old.strip():
+                new = old.rstrip() + "\n\n" + block + "\n"
+                action = "追加区块"
+            else:
+                new = block + "\n"
+                action = "新建"
 
-        print(f"  [{action}] {name:<8} {path}")
-        changed += 1
-        if apply:
-            if path.exists() and old.strip():
-                shutil.copy2(path, path.with_name(path.name + f".bak.{stamp}"))
-            path.write_text(new, encoding="utf-8")
+            if new == old:
+                print(f"  [无变化] {name:<12} {path}")
+                continue
+
+            print(f"  [{action}] {name:<12} {path}")
+            changed += 1
+            if apply:
+                if path.exists() and old.strip():
+                    shutil.copy2(path, path.with_name(path.name + f".bak.{stamp}"))
+                path.write_text(new, encoding="utf-8")
 
     if not apply:
         print(f"\n预演：{changed} 个文件待写入。加 --apply 才落盘。")
