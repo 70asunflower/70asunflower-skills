@@ -922,6 +922,7 @@ DEFAULT_RULE_TARGETS = {
     "codex": HOME / ".codex" / "AGENTS.md",
     "zcode": HOME / ".zcode" / "AGENTS.md",
     "gemini": HOME / ".gemini" / "GEMINI.md",
+    "dsh": HOME / ".dsh" / "AGENTS.md",
     # WorkBuddy 的记忆文件在 user-<id>-personal/ 下，id 每台机器不同，用通配展开
     "workbuddy": HOME / ".workbuddy" / "user-*-personal" / "MEMORY.md",
     "workbuddy-ai": HOME / ".workbuddy-ai" / "user-*-personal" / "MEMORY.md",

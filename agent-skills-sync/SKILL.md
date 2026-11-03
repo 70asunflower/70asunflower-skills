@@ -1,6 +1,6 @@
 ---
 name: agent-skills-sync
-description: 管理本机多个 AI agent（WorkBuddy 国内版/海外版 / Claude Code / Codex / ZCode / Gemini CLI / Antigravity）共享用户级技能的单一真相源。当用户问「技能怎么同步到所有 agent」「新建一个技能」「写个 skill」「这个技能该放哪」「加一个技能到所有 agent」「各 agent 技能不一致」「某个 agent 里 `/` 看不到技能」「junction 链路断了」，或需要诊断/修复技能目录结构时使用。新建技能前必读：技能只能建在主库，不能用 skill-creator 的默认路径。
+description: 管理本机多个 AI agent（WorkBuddy 国内版/海外版 / Claude Code / Codex / ZCode / Gemini CLI / Antigravity / DeepSeek Harness）共享用户级技能的单一真相源。当用户问「技能怎么同步到所有 agent」「新建一个技能」「写个 skill」「这个技能该放哪」「加一个技能到所有 agent」「各 agent 技能不一致」「某个 agent 里 `/` 看不到技能」「junction 链路断了」，或需要诊断/修复技能目录结构时使用。新建技能前必读：技能只能建在主库，不能用 skill-creator 的默认路径。
 agent_created: true
 ---
 
@@ -44,7 +44,7 @@ D:\Projects\agent\skills\
 
 **边界**：一台机器、用户级技能、你能控制所有 agent 的目录布局。多机、团队、项目级技能都要换方案。
 
-**当前状态（2026-11-03）**：workbuddy / workbuddy-ai / codex / zcode 四渠道全 junction（zcode 2026-11-03 接入，53/53）；claude / gemini / antigravity / dsh 已注册但 skills 目录不存在，尚未接入。`skillsync.py scan` 显示**多副本漂移 = 0**。junction 拓扑与权属细则见主记忆 `skills-junction-architecture`。
+**当前状态（2026-11-03）**：workbuddy / workbuddy-ai / codex / zcode / dsh 五渠道全 junction（zcode、dsh 均于 2026-11-03 接入，53/53）；claude / gemini / antigravity 已注册但 skills 目录不存在，尚未接入。`skillsync.py scan` 显示**多副本漂移 = 0**。junction 拓扑与权属细则见主记忆 `skills-junction-architecture`。
 
 ## 命令
 
@@ -115,9 +115,9 @@ git commit --no-verify                          # 临时跳过
 **Antigravity Windows 扫描机制**：Antigravity 底层在 Windows 下通过标准 `io/fs` 扫描，会跳过 `~/.gemini/config/skills/` 内部的二级 Junction 目录。因此 Antigravity 统一采用原生声明式配置 `~/.gemini/config/skills.json` 直接挂载主库真实路径，绕过子目录 Junction 限制。
 
 **WorkBuddy 的指令通道不是 `AGENTS.md`**：它读的是记忆文件——国内版 `~/.workbuddy/MEMORY.md`、
-海外版 `~/.workbuddy-ai/user-<id>/MEMORY.md`。`rules` 只覆盖 claude / codex / zcode / gemini 四个，
-WorkBuddy 那两个文件里放的是**指针**（指向仓库 AGENTS.md + 三步同步命令），不复制规则正文。
-两处都写必然漂移，指针不会。
+海外版 `~/.workbuddy-ai/user-<id>/MEMORY.md`，由 `rules --apply` 写入同一个规则区块。
+
+**dsh 的两条通道**：技能读 `~/.dsh/skills`（rank 400，junction 热生效，新增技能下一轮对话即可见）；规则读 `~/.dsh/AGENTS.md`。**不要同时写 `~/.agents/AGENTS.md`**——dsh 的全局指令链是 `~/.dsh/AGENTS.md` → `~/.agents/AGENTS.md` → 项目链，两处都写等于区块重复注入。
 
 **`.gitignore` 区块只减不增**：早期按「目录存在但 git 未跟踪」自动判定第三方技能，结果把
 自己新建的技能也一起扫了进去——从此进不了 git，而且没有任何提示（实测 31 个被排除的目录里
