@@ -1,6 +1,6 @@
 ---
 name: siyuan-backup-sync
-description: "Git backup/sync workflow for the SiYuan data repository (70asunflower/siyuan-backup). Covers the gh-credential push command, LFS quota awareness, the mandatory 'close SiYuan before git' rule, the temp/install/*.exe .gitignore, and the plumbing-based history cleanup when a large installer accidentally got committed and blocks the push (GitHub GH001 >100MB). Use when committing/pushing the siyuan data repo or fixing a blocked push. Triggers: 思源备份, 思源同步, 笔记备份, 思源 git, 仓库同步."
+description: "Git backup/sync workflow for the SiYuan data repository (70asunflower/siyuan-backup). Use when committing/pushing the siyuan data repo or fixing a blocked push. Triggers: 思源备份, 思源同步, 笔记备份, 思源 git, 仓库同步. Covers the gh-credential push command, LFS quota awareness, the mandatory 'close SiYuan before git' rule, the temp/install/*.exe .gitignore, and the plumbing-based history cleanup when a large installer accidentally got committed and blocks the push (GitHub GH001 >100MB)."
 agent_created: true
 ---
 

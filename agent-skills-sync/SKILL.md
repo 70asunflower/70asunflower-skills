@@ -8,11 +8,15 @@ agent_created: true
 
 本机所有 agent 的用户级 skills 目录，通过 Windows 目录联结（junction）指向同一个仓库。**仓库是唯一真相源**：改仓库里的文件，所有 agent 立即生效，不需要任何同步命令。
 
+一页式机制总览与各 agent 接入状态在总目录 `D:\Projects\agent\skills\README.md`（本机文档，不入库）；本文件讲操作细节与设计理由。
+
 ## 架构
 
 ```
-D:\Project\workspace\my_github\70asunflower-skills\   ← 唯一真相源（git，公开仓库）
-        │
+D:\Projects\agent\skills\
+        ├── hub\       ← 唯一真相源（git 仓库，自建技能）
+        └── vendor\    ← 第三方技能（.gitignore 排除，不入库、不 lint）
+                │
         ├── ~/.workbuddy/skills/<skill>      ← junction（国内版）
         ├── ~/.workbuddy-ai/skills/<skill>   ← junction（海外版，独立配置目录）
         ├── ~/.claude/skills/<skill>         ← junction
@@ -40,7 +44,7 @@ D:\Project\workspace\my_github\70asunflower-skills\   ← 唯一真相源（git�
 
 **边界**：一台机器、用户级技能、你能控制所有 agent 的目录布局。多机、团队、项目级技能都要换方案。
 
-**当前状态（2026-11-01）**：归集完成——`etfirst`、`neodata-financial-search` 已收编进主库（第三方物理在仓不入库），zcode/claude/workbuddy 三渠道全部 junction，baseline 的 `intentional` 已清空；`skillsync.py scan` 显示**多副本漂移 = 0**，六个 runtime 的自建技能 27/27 全 junction。junction 拓扑与权属细则见主记忆 `skills-junction-architecture`。
+**当前状态（2026-11-03）**：workbuddy / workbuddy-ai / codex / zcode 四渠道全 junction（zcode 2026-11-03 接入，53/53）；claude / gemini / antigravity / dsh 已注册但 skills 目录不存在，尚未接入。`skillsync.py scan` 显示**多副本漂移 = 0**。junction 拓扑与权属细则见主记忆 `skills-junction-architecture`。
 
 ## 命令
 
@@ -51,7 +55,7 @@ python scripts/skillsync.py status        # 每个 agent 每个技能的状态�
 python scripts/skillsync.py scan          # 多份副本的漂移分类报告
 python scripts/skillsync.py doctor        # 断链、链式嵌套、主库含链接；豁免项不计入问题数
 python scripts/skillsync.py adopt         # 收编散落副本进仓库（默认 dry-run）
-python scripts/skillsync.py link          # 把仓库技能分发到各 agent（默认 dry-run）
+python scripts/skillsync.py link          # 把仓库技能分发到各 agent（默认 dry-run；--ensure 顺带建缺失的 agent 目录，需 --apply）
 python scripts/skillsync.py gitignore     # 刷新 .gitignore 第三方区块（只减不增）
 python scripts/skillsync.py prune         # 清理断链：技能删了、junction 还在（默认 dry-run）
 ```
@@ -135,3 +139,9 @@ WorkBuddy 那两个文件里放的是**指针**（指向仓库 AGENTS.md + 三�
 **旧脚本已废弃**：`scripts/sync_zcode_skills.py` 是单向复制（先 rmtree 仓库目录再 copytree），在 junction 布局下方向相反会覆盖仓库，已内置拒绝执行的硬保护。
 
 **跨盘 junction**：仓库在 D 盘、agent 目录在 C 盘，属正常用法，已实测可读。D 盘不可用时 agent 会扫不到技能。
+
+**link 静默跳过目录不存在的 agent**：在 `skillsync.json` 里注册了 agent ≠ 已接入——skills 目录
+不存在时 `link` 不报错、不建目录，直接跳过，只有 `status` 末尾一行「未安装」能看出来
+（zcode 就这样漏接过）。新增 agent 三步：登记 `agents` → `mkdir <skills 目录>` →
+`link --apply`；或一步 `link --ensure --apply`。验证接入与否看 `status` 矩阵里有没有该列，
+别看 link 的退出码。

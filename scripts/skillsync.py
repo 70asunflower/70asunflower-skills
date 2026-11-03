@@ -11,7 +11,7 @@ skillsync — 多 agent 用户级技能库同步工具
     python skillsync.py scan               # 只读：重复副本的漂移报告
     python skillsync.py doctor             # 只读：结构问题（断链/链式/无主库）
     python skillsync.py adopt  [--apply]   # 收编散落真实副本进主库（默认 dry-run）
-    python skillsync.py link   [--apply]   # 为各 agent 建 junction（默认 dry-run）
+    python skillsync.py link   [--apply] [--ensure]   # 建 junction；--ensure 顺带创建缺失的 agent skills 目录（需 --apply）
     python skillsync.py add <path> [--apply]  # 收入一个新技能并分发
 
 安全约定：
@@ -779,10 +779,17 @@ def cmd_link(cfg, args):
     print()
 
     plan = []
+    missing_dirs = []
     exclude = cfg.get("exclude") or {}
     for a, base in cfg["agents"].items():
         if not base.exists():
-            continue
+            # 注册了 agent ≠ 已接入：目录不存在就静默跳过，zcode 因此漏接过。
+            # 只有 --ensure --apply 才会顺手建目录（保持 dry-run 不落盘的约定）。
+            if args.ensure and apply:
+                base.mkdir(parents=True, exist_ok=True)
+            else:
+                missing_dirs.append(a)
+                continue
         ex = set(exclude.get(a, []))
         for name in names:
             if name in ex:
@@ -800,6 +807,10 @@ def cmd_link(cfg, args):
 
     for action, a, name in plan:
         print(f"  [{action:<10}] {a}/{name}")
+
+    if missing_dirs:
+        print(f"\n[warn] 这些 agent 已注册但 skills 目录不存在，已跳过：{', '.join(sorted(missing_dirs))}")
+        print("       先 mkdir 再 link --apply，或用 link --ensure --apply 自动建目录。")
 
     if not apply:
         print("\n加 --apply 才建链接。skip-real 需要先跑 adopt。")
@@ -1027,6 +1038,8 @@ def main():
 
     p = sub.add_parser("link", help="为各 agent 建 junction")
     p.add_argument("--apply", action="store_true")
+    p.add_argument("--ensure", action="store_true",
+                   help="自动创建缺失的 agent skills 目录（需配合 --apply）")
 
     p = sub.add_parser("add", help="收入一个新技能")
     p.add_argument("path")

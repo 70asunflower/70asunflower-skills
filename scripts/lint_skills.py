@@ -23,6 +23,8 @@
   W3  description 和正文都没有说明「何时用」，触发准确率会低
   W4  references/ 或 templates/ 里有文件，正文从没提过（agent 不知道它存在）
       （description 里写了 Triggers/触发词，或正文有「何时使用」段，都算合格）
+  W5  「何时用/Triggers」标记落在 description 第 250 字之后
+      （ZCode 呈现 description 时截到 ~250 字符，窗口外的触发句模型看不到）
 
 退出码：0 无 error；1 有 error；--strict 下 warning 也算失败。
 """
@@ -36,9 +38,10 @@ HUB = pathlib.Path(__file__).resolve().parent.parent
 SKIP_DIRS = {"scripts", "archive", "templates", ".git", ".github", "docs", "node_modules"}
 MAX_LINES = 300
 DESC_MIN, DESC_MAX = 80, 600
+TRIGGER_WIN = 250   # ZCode 呈现 description 时截到 ~250 字符，触发句必须在窗口内
 WHEN_RE = re.compile(r"何时使用|when to use|使用场景|触发条件|什么时候用", re.I)
 # description 里带这些标记，等于已经写清楚了「何时用」
-TRIGGER_RE = re.compile(r"trigger|触发|当用户|use (this|it)( skill)?\s+when|whenever|适用于|用于", re.I)
+TRIGGER_RE = re.compile(r"trigger|触发|当用户|use (this|it)( skill)?\s+when|use when|whenever|适用于|用于", re.I)
 REF_RE = re.compile(r"`((?:scripts|references|templates|assets|examples|locales)/[^`\s]+)`")
 JUNK = {"__pycache__", ".DS_Store", "node_modules", ".pytest_cache", ".venv", "Thumbs.db"}
 
@@ -99,6 +102,10 @@ def check_skill(d: pathlib.Path) -> tuple[list[str], list[str]]:
         errs.append("E4 frontmatter 缺 description")
     elif not (DESC_MIN <= len(desc) <= DESC_MAX):
         errs.append(f"E4 description {len(desc)} 字，应在 {DESC_MIN}–{DESC_MAX} 之间")
+
+    tm = TRIGGER_RE.search(desc)
+    if tm and tm.start() > TRIGGER_WIN:
+        warns.append(f"W5 触发描述出现在第 {tm.start()} 字，超出 ZCode 的 ~{TRIGGER_WIN} 字呈现窗口——模型看不到，把「何时用」句挪进窗口内")
 
     if (d / "scripts").is_dir() and "scripts/" not in text:
         errs.append("E5 有 scripts/ 目录但正文从未提到 `scripts/`，agent 不会去用")

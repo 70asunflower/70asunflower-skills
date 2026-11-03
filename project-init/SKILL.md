@@ -1,6 +1,6 @@
 ---
 name: project-init
-description: 项目底线与规范生成器。只立四条不可协商的底线——git 管理、AGENTS.md 唯一规范来源、三层留痕（memory/MEMORY.md 项目记忆 + memory/日期的项目日日志 + 每个正式文件的同名 .log.md，条目必须带模型 id）、正式产出无 AI 痕迹；其余全部交给项目自己声明。结构不搞一刀切：minimal / docs / software 三种预设，或用 --dirs 自定义目录，根目录文件也能登记。agent 入口文件默认一个都不预建，各 agent 首次进入时按 AGENTS.md 里的对照表自建自己的那一份。含 adopt 接管散乱项目（先出迁移建议，--apply 才动）、upgrade 规范模板升级（只出 diff 不覆盖）、check 只读巡检（--fix 修无争议项、--scan 批量）。当用户说"项目初始化、建个新项目、立规矩、规范 agent 行为、生成 AGENTS.md、接管旧项目、整理项目、规范升级、检查项目、项目是不是乱了"时使用，即使没明说"初始化"；agent 进入已初始化项目收工前也可触发自检。
+description: 项目底线与规范生成器。当用户说"项目初始化、建个新项目、立规矩、规范 agent 行为、生成 AGENTS.md、接管旧项目、整理项目、规范升级、检查项目、项目是不是乱了"时使用，即使没明说"初始化"；agent 进入已初始化项目收工前也可触发自检。只立四条不可协商的底线——git 管理、AGENTS.md 唯一规范来源、三层留痕（memory/MEMORY.md 项目记忆 + memory/日期的项目日日志 + 每个正式文件的同名 .log.md，条目必须带模型 id）、正式产出无 AI 痕迹；其余全部交给项目自己声明。结构不搞一刀切：minimal / docs / software 三种预设，或用 --dirs 自定义目录，根目录文件也能登记。agent 入口文件默认一个都不预建，各 agent 首次进入时按 AGENTS.md 里的对照表自建自己的那一份。含 adopt 接管散乱项目（先出迁移建议，--apply 才动）、upgrade 规范模板升级（只出 diff 不覆盖）、check 只读巡检（--fix 修无争议项、--scan 批量）。
 ---
 
 # project-init —— 立底线，不立模板

@@ -1,12 +1,13 @@
 ---
 name: 3d-printing-cad-design
 description: >-
-  Standardized end-to-end workflow for 3D printing mechanical CAD design, parametric modeling
-  (using build123d / CadQuery), watertight mesh verification, interactive Three.js 3D web preview
-  generation (both self-built small parts AND large imported STEP assemblies via STEP→GLB
-  single-file offline preview), and manufacturing delivery packaging. Use this skill whenever designing
-  custom 3D printed parts, mechanical brackets, clamps, motor mounts, robotic linkages, or assemblies,
-  or when asked to render/preview any STEP/STL model in an HTML viewer.
+  Standardized end-to-end workflow for 3D printing mechanical CAD design, parametric
+  modeling (using build123d / CadQuery), and manufacturing delivery packaging. Use this
+  skill whenever designing custom 3D printed parts, mechanical brackets, clamps, motor
+  mounts, robotic linkages, or assemblies, or when asked to render/preview any STEP/STL
+  model in an HTML viewer. Watertight mesh verification and interactive Three.js 3D web
+  preview generation cover both self-built small parts AND large imported STEP assemblies
+  via STEP→GLB single-file offline preview.
 ---
 
 # 3D 打印机械 CAD 建模与工程交付全流程规范 (3D Printing CAD Design Workflow)
