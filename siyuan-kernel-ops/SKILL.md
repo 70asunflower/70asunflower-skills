@@ -1,11 +1,11 @@
 ---
 name: siyuan-kernel-ops
 description: "Safely search, read, create, edit, move, and batch-process a local SiYuan knowledge base from an AI agent runtime through SiYuan's Kernel HTTP API. Use when the user mentions SiYuan/思源笔记, notebooks, documents, blocks, backlinks, attributes, SQL/full-text search, daily notes, or asks the agent to organize or write back knowledge. Prefer block-level, idempotent edits; protect block IDs, references, assets, and user data. Triggers: 思源 API, 读笔记库, 批量改笔记, 思源端口, 思源内核, 上传附件到思源."
-compatibility: Any AI agent runtime (WorkBuddy, ZCode, Claude Code, …) on Windows with Python 3 and local access to a running SiYuan desktop/kernel. The default workspace config is D:\MyData\Warehouse\siyuan-backup\conf\conf.json; SIYUAN_URL, SIYUAN_TOKEN, and SIYUAN_CONF may override it.
+compatibility: Any AI agent runtime (WorkBuddy, ZCode, Claude Code, …) on Windows with Python 3 and local access to a running SiYuan desktop/kernel. Config lookup: SIYUAN_URL + SIYUAN_TOKEN → SIYUAN_CONF → D:\MyData\Warehouse\siyuan-backup\conf\conf.json → %USERPROFILE%\SiYuan\conf\conf.json → sibling D:\MyData\*\conf\conf.json. scripts/sy.py probes every token it finds against a data endpoint, so a stale config cannot masquerade as the live workspace.
 metadata:
-  version: "3.3.0"
+  version: "3.4.0"
   target: "Agent runtimes + SiYuan"
-  changelog: "3.3.0 (2026-10-30) — whole-doc surgery extracted to scripts/siyuan_surgery.py (drain-aware Fix A, ZWSP-tolerant replace, dual-marker verify; live-tested); Q10 += removeDoc/removeDocByID and asset-dedupe traps; Q13 rewritten from new evidence (placeholder-p is the expected drained state); callout round-trip moved from Q20 to Q12; runtime branding generalized. Earlier releases (3.0–3.2): see git log."
+  changelog: "3.4.0 (2026-11-03) — sy.py now discovers and authenticates multiple conf.json candidates (stale profile config vs live workspace config); connection rules rewritten around stale serverAddrs; Q10 += listDocsByPath needs the internal .sy path, hpath fails; Q12 += one-call createDocWithMd for whole articles (57K chars / 54 tables, live-tested). Earlier releases: see git log."
 ---
 
 # Agent runtimes × SiYuan — kernel operations
@@ -24,7 +24,7 @@ SiYuan is a **block graph**, not a folder of Markdown files. Block IDs, referenc
 
 ## 1. Connect
 
-Precedence: `SIYUAN_URL` + `SIYUAN_TOKEN` → `SIYUAN_CONF` → `D:\MyData\Warehouse\siyuan-backup\conf\conf.json` → `http://127.0.0.1:6806`.
+Precedence: `SIYUAN_URL` + `SIYUAN_TOKEN` → `SIYUAN_CONF` → `D:\MyData\Warehouse\siyuan-backup\conf\conf.json` → `%USERPROFILE%\SiYuan\conf\conf.json` → sibling `D:\MyData\*\conf\conf.json`. Several workspaces can coexist on one machine; `sy.py` tries every token it finds and keeps the first base a data endpoint accepts.
 
 The Kernel API is plain HTTP `POST` + JSON. Use Python with `ensure_ascii=False` — Git Bash mangles Chinese inside inline `curl -d '{"data":"中文"}'`.
 
@@ -43,7 +43,8 @@ Replace `<skill dir>` with the skill's base directory. Smoke test: `python scrip
 
 | Rule | Why |
 |---|---|
-| Read the port from `conf.json` `serverAddrs` every session; never hardcode `6806` or a saved port | Port drifts on every launch. A stale port returns `200`/`code:0` for **everything** — including writes that are then dropped. |
+| Treat `serverAddrs` as a hint: try each candidate URL **plus** `127.0.0.1:6806`, and accept only a base where the token passes `lsNotebooks` | A stale conf can list a dead port while the live kernel listens on 6806 under a different conf. A stale port may answer `200`/`code:0` for **everything** — including writes that are then dropped. |
+| With several `conf.json` (profile-level vs workspace-level), choose by token, never by file mtime or declared port | An old workspace's token returns 401 on the live kernel; the config that looks newest can still be dead. |
 | Validate with a data endpoint (`lsNotebooks` → `data.notebooks`), not `/api/system/version` | `version` answers on a dead/stale kernel. |
 | Write only through `127.0.0.1` | A LAN entry in `serverAddrs` reads fine but silently discards writes. |
 | Read `api.token` in full each time | The token rotates on reset; a truncated value yields misleading 401/404. |
@@ -177,7 +178,7 @@ Every entry below cost real debugging or real data loss. Each is a **still-curre
 **Q10 · Endpoint names and the container-delete trap.**
 - Children are `/api/block/getChildBlocks`, **not** `/api/filetree/getChildBlocks` (404).
 - `/api/filetree/getDocInfo` is 404 — use `getHPathByID` + `getBlockInfo`.
-- `/api/filetree/listDocsByPath` requires `{notebook, path}`.
+- `/api/filetree/listDocsByPath` requires `{notebook, path}`, where `path` is the **internal `.sy` path** (from `getBlockInfo.path`, e.g. `/2026… .sy`), **not** an hpath — passing `/技术杂项` fails with `The system cannot find the file specified`. To list child docs by human path, resolve with `getIDsByHPath` + `getBlockInfo`, or use read-only SQL on `blocks` filtering `hpath LIKE '/parent%'`.
 - `asset/upload` is multipart with field **`file[]`**.
 - Use `/api/filetree/removeDocByID` `{id}` for deletion — path-based `/api/filetree/removeDoc` reports `block not found` no matter how you spell the path (ID / hpath / `.sy` all fail).
 - `asset/upload` on a filename that already exists in `assets/` does **not** upload a copy — `succMap` returns the existing asset's real path (timestamp suffix included). Rewrite links to that returned name, never the original; the names differ from what you sent. (An identical-content re-upload has also been seen returning an empty `succMap` — either way, gate success on `succMap` contents, never on `code:0`.)
@@ -185,7 +186,7 @@ Every entry below cost real debugging or real data loss. Each is a **still-curre
 
 **Q11 · Moving and ordering.** `moveBlock` (camelCase — `move_block` is 404) takes `{id, parentID, previousID}` and places the block after `previousID`; move a run block-by-block, feeding each previous ID forward. `exportMdContent` can briefly return `data: None` after a move burst — transient index rebuild, retry (4 × 3 s) instead of reporting failure. A U+200B in exported Markdown is usually Lute's inline-node guard, not dirty data: if the stored markdown has none, don't "clean" it.
 
-**Q12 · `updateBlock` keeps only the FIRST block** of multi-block markdown, silently. One block per call; anything larger goes through `insertBlock` (which splits headings/code/tables/lists) or `appendBlock`, or goes through the whole-doc Fix A pipeline (`scripts/siyuan_surgery.py`). Editing an `h` needs the `#`-prefix and an `m` needs `$$` wrapping. Every heading level reports `type == "h"` — the level lives only in the `#` count — and headings are siblings under the root, so level shifts mean rewriting each one. Callout annotations round-trip losslessly: a `> [!NOTE]` blockquote parsed by `createDocWithMd`/`updateBlock` lands as a callout block (SiYuan's `/note`).
+**Q12 · `updateBlock` keeps only the FIRST block** of multi-block markdown, silently. One block per call; anything larger goes through `insertBlock` (which splits headings/code/tables/lists) or `appendBlock`, or goes through the whole-doc Fix A pipeline (`scripts/siyuan_surgery.py`). Editing an `h` needs the `#`-prefix and an `m` needs `$$` wrapping. Every heading level reports `type == "h"` — the level lives only in the `#` count — and headings are siblings under the root, so level shifts mean rewriting each one. Callout annotations round-trip losslessly: a `> [!NOTE]` blockquote parsed by `createDocWithMd`/`updateBlock` lands as a callout block (SiYuan's `/note`). For a whole pasted article prefer one `createDocWithMd` over a chain of `appendBlock` (live: 57K chars, 54 tables, 475 top-level blocks in 0.6 s; verify block counts afterwards).
 
 **Q13 · Rebuild drains to a placeholder, and large deletes can silently half-fail.** After deleting all children SiYuan regenerates exactly one zero-length `p` — that placeholder (or truly empty) is the drained state to wait for; a strict "must be zero children" loop never terminates. The delete loop itself has been observed to partially fail at scale (every call `code:0`, 56–85 % of blocks surviving), though a 163-child delete+rebuild has also succeeded in full — treat scale behaviour as unreliable and always re-read after deleting: survivors (beyond the placeholder) get deleted again before `updateBlock`; `scripts/siyuan_surgery.py` implements exactly this. Never write `while getChildBlocks(): delete…` blindly. When preserving the doc ID matters less than correctness, skip Fix A for Fix B (`removeDocByID` + `createDocWithMd`). Persist any new doc ID; a lost ID makes a successful rebuild look like a vanished document.
 

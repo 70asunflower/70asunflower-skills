@@ -1,11 +1,16 @@
 """SiYuan Kernel API helper — the reference implementation for siyuan-kernel-ops.
 
-Usage from a WorkBuddy session (replace <skill dir> with the skill's base directory):
+Usage from an agent session (replace <skill dir> with the skill's base directory):
 
     import sys; sys.path.insert(0, r"<skill dir>/scripts")
     from sy import connect, call
     base, token = connect()
     call(base, token, "/api/notebook/lsNotebooks")
+
+Connection lookup: SIYUAN_URL + SIYUAN_TOKEN, then every conf.json found among
+SIYUAN_CONF / the default workspace / %USERPROFILE%\\SiYuan\\conf / sibling
+workspaces under the same data root. Each token is validated against
+/api/notebook/lsNotebooks, so stale configs are skipped instead of trusted.
 
 Smoke test: python sy.py
 """
@@ -17,26 +22,69 @@ import urllib.request
 from pathlib import Path
 
 DEFAULT_CONF = Path(r"D:\MyData\Warehouse\siyuan-backup\conf\conf.json")
-CONF = Path(os.environ.get("SIYUAN_CONF", str(DEFAULT_CONF)))
 
 
-def load_connection():
-    env_url = os.environ.get("SIYUAN_URL", "").rstrip("/")
-    env_token = os.environ.get("SIYUAN_TOKEN", "")
-    conf = {}
-    if CONF.is_file():
-        conf = json.loads(CONF.read_text(encoding="utf-8-sig"))
-    token = env_token or ((conf.get("api") or {}).get("token") or "")
+def _urls(conf, env_url=""):
     urls = []
     if env_url:
-        urls.append(env_url)
+        urls.append(env_url.rstrip("/"))
     for value in conf.get("serverAddrs") or []:
         if isinstance(value, str) and value.startswith(("http://127.0.0.1:", "http://localhost:")):
             urls.append(value.rstrip("/"))
     urls.append("http://127.0.0.1:6806")
-    urls = list(dict.fromkeys(urls))
-    if not token:
-        raise RuntimeError("SiYuan API token not found")
+    return list(dict.fromkeys(urls))
+
+
+def candidate_conf_files():
+    """Workspace configs to try, in priority order. Missing files are ignored."""
+    paths = []
+    env = os.environ.get("SIYUAN_CONF")
+    if env:
+        paths.append(Path(env))
+    paths.append(DEFAULT_CONF)
+    paths.append(Path.home() / "SiYuan" / "conf" / "conf.json")
+    try:
+        data_root = DEFAULT_CONF.parents[3]
+    except IndexError:
+        data_root = None
+    if data_root and data_root.is_dir():
+        paths.extend(sorted(data_root.glob("*/conf/conf.json")))
+    seen, result = set(), []
+    for path in paths:
+        key = os.path.normcase(str(path))
+        if key not in seen and path.is_file():
+            seen.add(key)
+            result.append(path)
+    return result
+
+
+def load_connections():
+    """Return [(label, token, urls)] candidates, deduplicated by (token, urls)."""
+    env_url = os.environ.get("SIYUAN_URL", "").rstrip("/")
+    env_token = os.environ.get("SIYUAN_TOKEN", "").strip()
+    candidates, searched = [], [str(DEFAULT_CONF)]
+    if env_token:
+        candidates.append(("env SIYUAN_TOKEN", env_token, _urls({}, env_url)))
+    for path in candidate_conf_files():
+        searched.append(str(path))
+        conf = json.loads(path.read_text(encoding="utf-8-sig"))
+        token = ((conf.get("api") or {}).get("token") or "").strip()
+        if token:
+            candidates.append((str(path), token, _urls(conf, env_url)))
+    if not candidates:
+        raise RuntimeError("SiYuan API token not found; searched " + ", ".join(dict.fromkeys(searched)))
+    seen, result = set(), []
+    for label, token, urls in candidates:
+        key = (token, tuple(urls))
+        if key not in seen:
+            seen.add(key)
+            result.append((label, token, urls))
+    return result
+
+
+def load_connection():
+    """Backward-compatible: (urls, token) of the first candidate."""
+    _label, token, urls = load_connections()[0]
     return urls, token
 
 
@@ -57,15 +105,15 @@ def call(base, token, path, payload=None, timeout=30):
 
 
 def connect():
-    urls, token = load_connection()
     errors = []
-    for base in urls:
-        try:
-            data = call(base, token, "/api/notebook/lsNotebooks", {}, 5)
-            if isinstance(data, dict) and isinstance(data.get("notebooks"), list):
-                return base, token
-        except Exception as exc:
-            errors.append(f"{base}: {type(exc).__name__}")
+    for label, token, urls in load_connections():
+        for base in urls:
+            try:
+                data = call(base, token, "/api/notebook/lsNotebooks", {}, 5)
+                if isinstance(data, dict) and isinstance(data.get("notebooks"), list):
+                    return base, token
+            except Exception as exc:
+                errors.append(f"{base} [{label}]: {type(exc).__name__}")
     raise RuntimeError("No authenticated SiYuan kernel found; " + "; ".join(errors))
 
 
