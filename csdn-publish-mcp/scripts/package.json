@@ -1,0 +1,11 @@
+{
+  "name": "csdn-publish-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "CSDN 草稿 MCP 服务器：playwright-core 接管专属 Chrome 配置档，把本地文章存成 CSDN 草稿",
+  "main": "server.mjs",
+  "dependencies": {
+    "playwright-core": "^1.49.0"
+  }
+}
