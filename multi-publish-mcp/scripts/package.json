@@ -1,0 +1,12 @@
+{
+  "name": "multi-publish-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "多平台草稿 MCP 服务器（知乎/公众号/小红书/抖音），架构复刻自 CSDN 同步助手扩展的适配器",
+  "main": "server.mjs",
+  "dependencies": {
+    "marked": "^15.0.0",
+    "playwright-core": "^1.49.0"
+  }
+}

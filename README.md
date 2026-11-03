@@ -3,7 +3,7 @@
 > 把做过的事、踩过的坑、验证过的流程，写成 agent 能直接调用的技能。
 > 一份内容，五个 agent 共用——不复制，不漂移。
 
-![skills](https://img.shields.io/badge/skills-29-7cc4ff?style=flat-square)
+![skills](https://img.shields.io/badge/skills-30-7cc4ff?style=flat-square)
 ![agents](https://img.shields.io/badge/agents-5-8b7cff?style=flat-square)
 ![license](https://img.shields.io/badge/license-MIT-3f9d6b?style=flat-square)
 ![last commit](https://img.shields.io/github/last-commit/70asunflower/70asunflower-skills?style=flat-square&color=ffb454&label=last%20commit)
@@ -84,7 +84,7 @@ skills/
 
 之后 `status` / `link` / `doctor` 都会同时看这两个根，junction 分别指向各自所在的根，agent 侧完全无感——它看到的仍是一层平铺的技能目录。`gitignore` 命令只管 `hub`，`vendor` 根本不进仓库，也就不需要排除名单了。
 
-## 全部 29 个技能
+## 全部 30 个技能
 
 按用途分组。标 `personal` 的绑了个人路径 / 账号 / 登录态，别人装了要改配置；
 其余可以直接拿去用（个别技能含本机解释器路径，按需改一行）。
@@ -147,6 +147,7 @@ skills/
 | [xhs-pipeline](./xhs-pipeline/) | `personal` · 小红书信息收集流水线（profile 驱动：搜索/抓取/审读/合并入库），依赖本机浏览器登录态 |
 | [trek-mcp-ops](./trek-mcp-ops/) | `personal` · 自部署 TREK 旅行规划器（Docker + 内置 MCP 135 工具）的启停/建行程/排障手册，含本机端口与代理配置 |
 | [csdn-publish-mcp](./csdn-publish-mcp/) | `personal` · 自建 MCP 服务器：playwright-core 接管专属 Chrome 配置档，把本地 Markdown 连图存成 CSDN 草稿（图走官方图床），与官方「CSDN 同步助手」的反方向互补 |
+| [multi-publish-mcp](./multi-publish-mcp/) | `personal` · 多平台草稿 MCP（适配器逆向自「CSDN 同步助手」扩展）：知乎草稿已实现，公众号/小红书/抖音端点已提取待实现；复用 csdn-publish-mcp 的自动化 Chrome 登录态 |
 
 ## 维护本仓库
 
