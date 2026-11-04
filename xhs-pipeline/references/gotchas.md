@@ -17,7 +17,7 @@ CDP 真实点击聚焦 → `Input.insertText` → 验证回显。已封装。
 拦截器 hook `navigator.clipboard.writeText` 存 `window.__capA`，从 JS 变量取，永不依赖读系统剪贴板。
 
 ### X5. 两种 Copy 按钮 / X6. scrollIntoView 后坐标是动画瞬时值 / X7. 长回复按钮在视口外万像素
-永远取文档序最后一个 Copy；滚动后等 2.5s 再量坐标；先判可见性再点。已封装在 ai-tutorial-pipeline 的 wb.py。
+永远取文档序最后一个 Copy；滚动后等 2.5s 再量坐标；先判可见性再点。已封装在本技能 scripts/ 的 wb.py。
 
 ### X8. 生成中的判断：Stop 按钮是唯一可靠信号（AI 对话类 profile 适用）
 思考期页面文字完全不增长但 Stop 存在 = 活着。完成 = Stop 消失 + 复制按钮数增加 + 双确认。

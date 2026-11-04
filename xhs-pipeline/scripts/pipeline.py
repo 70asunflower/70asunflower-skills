@@ -21,10 +21,9 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-# 依赖同仓库的 ai-tutorial-pipeline/scripts（wb/siyuan 模块）。
-# __file__ 经 resolve() 折叠 junction 落到 hub 真实目录，任何 runtime 调用都能找到兄弟技能。
-_ai_scripts = Path(__file__).resolve().parents[2] / "ai-tutorial-pipeline" / "scripts"
-sys.path.insert(0, str(_ai_scripts))
+# wb / siyuan 是本技能 scripts/ 下的同目录模块（收编自原 ai-tutorial-pipeline）。
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import wb
 import wb
 import siyuan
 from wb import wb as call_wb  # wb 是模块，wb.wb 才是请求函数

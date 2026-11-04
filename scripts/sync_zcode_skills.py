@@ -31,7 +31,6 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 # 自制技能清单（公开仓库，第三方一律不收）
 SYNC_SKILLS = [
     # —— WorkBuddy 时代自制，迁移自 ~/.workbuddy/skills ——
-    "ai-tutorial-pipeline",
     "doc-plain-zh",
     "jetson-thor-mem-diag",
     "siyuan-backup-sync",

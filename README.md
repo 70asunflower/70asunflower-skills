@@ -3,7 +3,7 @@
 > 把做过的事、踩过的坑、验证过的流程，写成 agent 能直接调用的技能。
 > 一份内容，五个 agent 共用——不复制，不漂移。
 
-![skills](https://img.shields.io/badge/skills-30-7cc4ff?style=flat-square)
+![skills](https://img.shields.io/badge/skills-29-7cc4ff?style=flat-square)
 ![agents](https://img.shields.io/badge/agents-5-8b7cff?style=flat-square)
 ![license](https://img.shields.io/badge/license-MIT-3f9d6b?style=flat-square)
 ![last commit](https://img.shields.io/github/last-commit/70asunflower/70asunflower-skills?style=flat-square&color=ffb454&label=last%20commit)
@@ -84,7 +84,7 @@ skills/
 
 之后 `status` / `link` / `doctor` 都会同时看这两个根，junction 分别指向各自所在的根，agent 侧完全无感——它看到的仍是一层平铺的技能目录。`gitignore` 命令只管 `hub`，`vendor` 根本不进仓库，也就不需要排除名单了。
 
-## 全部 30 个技能
+## 全部 29 个技能
 
 按用途分组。标 `personal` 的绑了个人路径 / 账号 / 登录态，别人装了要改配置；
 其余可以直接拿去用（个别技能含本机解释器路径，按需改一行）。
@@ -115,8 +115,7 @@ skills/
 | [strict-docx-audit](./strict-docx-audit/) | docx 转换后的质量闸：12 项结构与排版检查 |
 | [doc-plain-zh](./doc-plain-zh/) | 中文文档可读性转换：拗口 → 通顺，只改表达、不改逻辑与事实，保持书面正式 |
 | [weekreport](./weekreport/) | 零散工作要点 → 周报正文：结论先行 + 产出必须具名 + 六条「让产出可见」的结构规则（放弃写成决策、旧目标闭环、下周可验收、累计进度）+ 周报特有的九种 AI 味清单 + 扩充只扩表达不扩事实；通用去 AI 味归 humanizer-zh，含六个场景的前后对照 |
-| [tutorial-writer](./tutorial-writer/) | 为初学者生成详细、正确、图文并茂的学习文档/教程：调研核验 → 依赖排序大纲 → 写作 → 配图（svg-diagram-pipeline）→ 润色（humanizer-zh）→ 三道门自查 → 交付（本地 md，可选思源） |
-| [ai-tutorial-pipeline](./ai-tutorial-pipeline/) | 用网页版 AI 按大纲逐章生成高质量教程并自动入库思源笔记，含浏览器接管、表格/公式格式校验 |
+| [first-shot](./first-shot/) | 技术全景学习文档，深度研究后成文：摸知识地形（事实/机制/设计/实践/生态各「可说的是什么」）→ 权威一手来源建证据清单 → 按地形定结构与行文 → 逐章成文 → 全量核查 → 交付思源；不限字数、拆解不类比、形态目标导向不定模板；学习文档质量红线与核查清单的属主 |
 
 ### 笔记与知识库 — 思源 / Notion 的读写、排版与备份
 
